@@ -246,6 +246,20 @@
 		}
 
 		/**
+		 * Returns an associative array of attributes for this element
+		 * with the key being the attribute name.
+		 *
+		 * @return array
+		 */
+		public function getAttributes(){
+			$attributes = array();
+			foreach($this->element->attributes as $name => $value) {
+				$attributes[$name] = $value->nodeValue;
+			}
+			return $attributes;
+		}
+
+		/**
 		 * Return all child elements
 		 *
 		 * @return array
@@ -403,13 +417,13 @@
 
 			// Remove current children:
 			$this->nodeValue = '';
-			
+
 			// Remove non-printable characters:
 			$value = preg_replace('/[\x00-\x08\x0b-\x0c\x0e-\x1f]+/', null, $value);
 
 			// Repair broken entities:
 			$value = preg_replace('%&(?!(#x?)?[0-9a-z]+;)%i', '&amp;', $value);
-			
+
 			$fragment = self::$document->createDocumentFragment();
 			$fragment->appendXML($value);
 
