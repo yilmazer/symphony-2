@@ -425,9 +425,12 @@
 		 * @return boolean
 		 *  True if the query executed without errors, false otherwise
 		 */
-		public function query($query, $type = "OBJECT"){
+		public function query($query, $type = "OBJECT", $params = array()){
 
 			if(empty($query)) return false;
+			self::cleanFields($params);
+			
+			$query = vsprintf($query, $params);
 
 			$query = trim($query);
 			$query_type = $this->determineQueryType($query);
