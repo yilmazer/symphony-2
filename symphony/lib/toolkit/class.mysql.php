@@ -412,12 +412,19 @@
 		 * Takes an SQL string and executes it. This function will apply query
 		 * caching if it is a read operation and if query caching is set. Symphony
 		 * will convert the `tbl_` prefix of tables to be the one set during installation.
+		 * To automatically sanitize variables being used the query has to be sprintf-formatted
+		 * and all variables passed on separately using the second parameter.
 		 * A type parameter is provided to specify whether `$this->_lastResult` will be an array
 		 * of objects or an array of associative arrays. The default is objects. This
 		 * function will return boolean, but set `$this->_lastResult` to the result.
 		 *
 		 * @param string $query
 		 *  The full SQL query to execute.
+		 * @param array $params
+		 *  An array containing parameters to be used in the query. The query has to be
+		 *  sprintf-formatted. All values will be sanitized before being used in the query.
+		 *  For sake of backwards-compatibility, the query will only be sprintf-processed
+		 *  if $params is not empty.
 		 * @param string $type
 		 *  Whether to return the result as objects or associative array. Defaults
 		 *  to OBJECT which will return objects. The other option is ASSOC. If $type
@@ -428,9 +435,11 @@
 		public function query($query, $params = array(), $type = "OBJECT"){
 
 			if(empty($query)) return false;
-			self::cleanFields($params);
 			
-			$query = vsprintf($query, $params);
+			if(!empty($params)) {
+				self::cleanFields($params);
+				$query = vsprintf($query, $params);
+			}
 
 			$query = trim($query);
 			$query_type = $this->determineQueryType($query);
