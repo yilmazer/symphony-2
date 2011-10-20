@@ -433,6 +433,10 @@
 		 *  True if the query executed without errors, false otherwise
 		 */
 		public function query($query, $params = array(), $type = "OBJECT"){
+			if($params == "ASSOC" || $params == "OBJECT") {
+				$type = $params;
+				$params = array();
+			}
 
 			if(empty($query)) return false;
 			
