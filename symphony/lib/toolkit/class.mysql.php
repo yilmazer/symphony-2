@@ -623,9 +623,9 @@
 		 * @return array
 		 *  An associative array with the column names as the keys
 		 */
-		public function fetch($query = null, $index_by_column = null){
+		public function fetch($query = null, $params = array(), $index_by_column = null){
 			if(!is_null($query)) {
-				$this->query($query, array(), "ASSOC");
+				$this->query($query, $params, "ASSOC");
 			}
 			else if(is_null($this->_lastResult)) {
 				return array();
@@ -664,8 +664,8 @@
 		 *  If there is no row at the specified `$offset`, an empty array will be returned
 		 *  otherwise an associative array of that row will be returned.
 		 */
-		public function fetchRow($offset = 0, $query = null){
-			$result = $this->fetch($query);
+		public function fetchRow($offset = 0, $query = null, $params = array()){
+			$result = $this->fetch($query, $params);
 			return (empty($result) ? array() : $result[$offset]);
 		}
 
@@ -682,8 +682,8 @@
 		 *  If there is no results for the `$query`, an empty array will be returned
 		 *  otherwise an array of values for that given `$column` will be returned
 		 */
-		public function fetchCol($column, $query = null){
-			$result = $this->fetch($query);
+		public function fetchCol($column, $query = null, $params = array()){
+			$result = $this->fetch($query, $params);
 
 			if(empty($result)) return array();
 
@@ -712,8 +712,8 @@
 		 *  Returns the value of the given column, if it doesn't exist, null will be
 		 *  returned
 		 */
-		public function fetchVar ($column, $offset = 0, $query = null){
-			$result = $this->fetch($query);
+		public function fetchVar ($column, $offset = 0, $query = null, $params = array()){
+			$result = $this->fetch($query, $params);
 			return (empty($result) ? null : $result[$offset][$column]);
 		}
 

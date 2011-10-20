@@ -254,7 +254,7 @@
 					$field_contexts[$type] = Symphony::Database()->fetch(sprintf(
 						"SELECT * FROM `tbl_fields_%s` WHERE `field_id` IN (%s)",
 						$type, implode(',', $field_id)
-					), 'field_id');
+					), null, 'field_id');
 				}
 
 				foreach($result as $f) {

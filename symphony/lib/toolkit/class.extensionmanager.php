@@ -126,7 +126,7 @@
 		 */
 		private static function __buildExtensionList($update=false) {
 			if (empty(self::$_extensions) || $update) {
-				self::$_extensions = Symphony::Database()->fetch("SELECT * FROM `tbl_extensions`", 'name');
+				self::$_extensions = Symphony::Database()->fetch("SELECT * FROM `tbl_extensions`", null, 'name');
 			}
 		}
 
