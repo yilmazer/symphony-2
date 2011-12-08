@@ -153,7 +153,7 @@
 			$value = isset($data['author_id']) ? $data['author_id'] : NULL;
 
 			if ($this->get('default_to_current_user') == 'yes' && empty($data) && empty($_POST)) {
-				$value = array(Administration::instance()->Author->get('id'));
+				$value = array(Symphony::Author()->get('id'));
 			}
 
 			if(!is_array($value)) $value = array($value);

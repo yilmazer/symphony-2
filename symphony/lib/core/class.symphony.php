@@ -70,13 +70,13 @@
 		 * An instance of the Cookie class
 		 * @var Cookie
 		 */
-		public $Cookie = null;
+		private static $Cookie = null;
 
 		/**
 		 * An instance of the currently logged in Author
 		 * @var Author
 		 */
-		public $Author = null;
+		private static $Author = null;
 
 		/**
 		 * The Symphony constructor initialises the class variables of Symphony.
@@ -86,15 +86,13 @@
 		 * `$_GET` and `$_POST` arrays. The constructor loads in
 		 * the initial Configuration values from the `CONFIG` file
 		 */
-		protected function __construct(){
-			if(get_magic_quotes_gpc()) {
+		protected function __construct() {
+			if (get_magic_quotes_gpc()) {
 				General::cleanArray($_SERVER);
 				General::cleanArray($_COOKIE);
 				General::cleanArray($_GET);
 				General::cleanArray($_POST);
 			}
-
-			$this->initialiseConfiguration();
 
 			define_safe('__SYM_DATE_FORMAT__', self::Configuration()->get('date_format', 'region'));
 			define_safe('__SYM_TIME_FORMAT__', self::Configuration()->get('time_format', 'region'));
@@ -104,18 +102,16 @@
 			// Initialize language management
 			Lang::initialize();
 
-			$this->initialiseLog();
+			self::initialiseLog();
 
 			GenericExceptionHandler::initialise(self::Log());
 			GenericErrorHandler::initialise(self::Log());
 
-			$this->initialiseDatabase();
-			$this->initialiseExtensionManager();
-			$this->initialiseCookie();
+			self::initialiseCookie();
 
 			// If the user is not a logged in Author, turn off the verbose error
 			// messages.
-			if(!self::isLoggedIn() && is_null($this->Author)){
+			if (!self::initialiseLogin() && is_null(self::$Author)) {
 				GenericExceptionHandler::$enabled = false;
 			}
 
@@ -131,12 +127,14 @@
 		* @return Symphony
 		*/
 		public static function Engine() {
-			if(class_exists('Administration')) {
+			if (class_exists('Administration')) {
 				return Administration::instance();
 			}
-			else if(class_exists('Frontend')) {
+
+			else if (class_exists('Frontend')) {
 				return Frontend::instance();
 			}
+
 			else throw new Exception(__('No suitable engine object found'));
 		}
 
@@ -148,8 +146,8 @@
 		 * @param array $data
 		 *  An array of settings to be stored into the Configuration object
 		 */
-		public function initialiseConfiguration(array $data = array()){
-			if(empty($data)){
+		public static function initialiseConfiguration(array $data = array()) {
+			if (empty($data)) {
 				// Includes the existing CONFIG file and initialises the Configuration
 				// by setting the values with the setArray function.
 				include(CONFIG);
@@ -166,7 +164,7 @@
 		 *
 		 * @return Configuration
 		 */
-		public static function Configuration(){
+		public static function Configuration() {
 			return self::$Configuration;
 		}
 
@@ -188,17 +186,17 @@
 		 * @param string $filename (optional)
 		 *  The file to write the log to, if omitted this will default to `ACTIVITY_LOG`
 		 */
-		public function initialiseLog($filename = null) {
-			if(self::$Log instanceof Log && self::$Log->getLogPath() == $filename) return true;
+		public static function initialiseLog($filename = null) {
+			if (self::$Log instanceof Log && self::$Log->getLogPath() == $filename) return true;
 
-			if(is_null($filename)) $filename = ACTIVITY_LOG;
+			if (is_null($filename)) $filename = ACTIVITY_LOG;
 
 			self::$Log = new Log($filename);
 			self::$Log->setArchive((self::Configuration()->get('archive', 'log') == '1' ? true : false));
 			self::$Log->setMaxSize(intval(self::Configuration()->get('maxsize', 'log')));
 			self::$Log->setDateTimeFormat(self::Configuration()->get('date_format', 'region') . ' ' . self::Configuration()->get('time_format', 'region'));
 
-			if(self::$Log->open(Log::APPEND, self::Configuration()->get('write_mode', 'file')) == 1){
+			if (self::$Log->open(Log::APPEND, self::Configuration()->get('write_mode', 'file')) == 1) {
 				self::$Log->initialise('Symphony Log');
 			}
 		}
@@ -219,14 +217,23 @@
 		 * defined in the Symphony configuration. The cookie will last two
 		 * weeks.
 		 */
-		public function initialiseCookie(){
+		public static function initialiseCookie() {
 			$cookie_path = @parse_url(URL, PHP_URL_PATH);
 			$cookie_path = '/' . trim($cookie_path, '/');
 
 			define_safe('__SYM_COOKIE_PATH__', $cookie_path);
 			define_safe('__SYM_COOKIE_PREFIX_', self::Configuration()->get('cookie_prefix', 'symphony'));
 
-			$this->Cookie = new Cookie(__SYM_COOKIE_PREFIX_, TWO_WEEKS, __SYM_COOKIE_PATH__);
+			self::$Cookie = new Cookie(__SYM_COOKIE_PREFIX_, TWO_WEEKS, __SYM_COOKIE_PATH__);
+		}
+
+		/**
+		 * Accessor for the current `$Author` instance.
+		 *
+		 * @return Author
+		 */
+		public static function Author() {
+			return self::$Author;
 		}
 
 		/**
@@ -234,12 +241,12 @@
 		 * Symphony instance as the parent. If for some reason this fails,
 		 * a Symphony Error page will be thrown
 		 */
-		public function initialiseExtensionManager(){
-			if(self::$ExtensionManager instanceof ExtensionManager) return true;
+		public static function initialiseExtensionManager() {
+			if (self::$ExtensionManager instanceof ExtensionManager) return true;
 
 			self::$ExtensionManager = new ExtensionManager;
 
-			if(!(self::$ExtensionManager instanceof ExtensionManager)){
+			if (!(self::$ExtensionManager instanceof ExtensionManager)) {
 				throw new SymphonyErrorPage('Error creating Symphony extension manager.');
 			}
 		}
@@ -266,7 +273,7 @@
 		 * @return boolean
 		 *  This function will always return true
 		 */
-		public function setDatabase(StdClass $database = null) {
+		public static function setDatabase(StdClass $database = null) {
 			if (self::Database()) return true;
 
 			self::$Database = !is_null($database) ? $database : new MySQL;
@@ -279,7 +286,7 @@
 		 *
 		 * @return MySQL
 		 */
-		public static function Database(){
+		public static function Database() {
 			return self::$Database;
 		}
 
@@ -292,8 +299,8 @@
 		 *  This function will return true if the `$Database` was
 		 *  initialised successfully.
 		 */
-		public function initialiseDatabase(){
-			$this->setDatabase();
+		public static function initialiseDatabase() {
+			self::setDatabase();
 
 			$details = self::Configuration()->get('database');
 
@@ -354,10 +361,10 @@
 
 				$id = self::Database()->fetchVar('id', 0, "SELECT `id` FROM `tbl_authors` WHERE `username` = '$username' AND `password` = '$password' LIMIT 1");
 
-				if($id){
-					$this->Author = AuthorManager::fetchByID($id);
-					$this->Cookie->set('username', $username);
-					$this->Cookie->set('pass', $password);
+				if ($id) {
+					self::$Author = AuthorManager::fetchByID($id);
+					self::$Cookie->set('username', $username);
+					self::$Cookie->set('pass', $password);
 					self::Database()->update(array('last_seen' => DateTimeObj::get('Y-m-d H:i:s')), 'tbl_authors', " `id` = '$id'");
 
 					return true;
@@ -411,10 +418,10 @@
 				));
 			}
 
-			if($row){
-				$this->Author = AuthorManager::fetchByID($row['id']);
-				$this->Cookie->set('username', $row['username']);
-				$this->Cookie->set('pass', $row['password']);
+			if ($row) {
+				self::$Author = AuthorManager::fetchByID($row['id']);
+				self::$Cookie->set('username', $row['username']);
+				self::$Cookie->set('pass', $row['password']);
 				self::Database()->update(array('last_seen' => DateTimeObj::getGMT('Y-m-d H:i:s')), 'tbl_authors', " `id` = '$id'");
 
 				return true;
@@ -430,7 +437,7 @@
 		 * @see core.Cookie#expire()
 		 */
 		public function logout(){
-			$this->Cookie->expire();
+			self::$Cookie->expire();
 		}
 
 		/**
@@ -441,38 +448,33 @@
 		 *
 		 * @see core.Cookie#expire()
 		 */
-		public function isLoggedIn(){
-
-			// Ensures that we're in the real world.. Also reduces three queries from database
-			// We must return true otherwise exceptions are not shown
-			if (is_null(self::$_instance)) return true;
-
-			if ($this->Author){
+		public static function initialiseLogin() {
+			if (self::$Author){
 				return true;
 			}
-			else{
 
-				$username = self::Database()->cleanValue($this->Cookie->get('username'));
-				$password = self::Database()->cleanValue($this->Cookie->get('pass'));
+			else {
+				$username = self::Database()->cleanValue(self::$Cookie->get('username'));
+				$password = self::Database()->cleanValue(self::$Cookie->get('pass'));
 
 				if(strlen(trim($username)) > 0 && strlen(trim($password)) > 0){
 
 					$id = self::Database()->fetchVar('id', 0, "SELECT `id` FROM `tbl_authors` WHERE `username` = '$username' AND `password` = '$password' LIMIT 1");
 
-					if($id){
+					if ($id) {
 						self::Database()->update(array('last_seen' => DateTimeObj::get('Y-m-d H:i:s')), 'tbl_authors', " `id` = '$id'");
-						$this->Author = AuthorManager::fetchByID($id);
+						self::$Author = AuthorManager::fetchByID($id);
 
 						// Only set custom author language in the backend
 						if(class_exists('Administration')) {
-							Lang::set($this->Author->get('language'));
+							Lang::set(self::$Author->get('language'));
 						}
 
 						return true;
 					}
 				}
 
-				$this->Cookie->expire();
+				self::$Cookie->expire();
 				return false;
 			}
 		}

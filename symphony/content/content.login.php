@@ -271,7 +271,7 @@
 					}
 
 					else{
-						$author_id = Administration::instance()->Author->get('id');
+						$author_id = Symphony::Author()->get('id');
 						$author = AuthorManager::fetchByID($author_id);
 
 						$author->set('password', General::hash(Symphony::Database()->cleanValue($_POST['password'])));

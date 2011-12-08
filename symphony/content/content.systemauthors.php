@@ -31,7 +31,7 @@
 			$this->setPageType('table');
 			$this->setTitle(__('%1$s &ndash; %2$s', array(__('Authors'), __('Symphony'))));
 
-			if (Administration::instance()->Author->isDeveloper()) {
+			if (Symphony::Author()->isDeveloper()) {
 				$this->appendSubheading(__('Authors'), Widget::Anchor(__('Add an Author'), Administration::instance()->getCurrentPageURL().'new/', __('Add a new author'), 'create button', NULL, array('accesskey' => 'c')));
 			} else $this->appendSubheading(__('Authors'));
 
@@ -54,8 +54,8 @@
 					'handle' => 'last_seen'
 				)
 			);
-			
-			if (Administration::instance()->Author->isDeveloper()) {
+
+			if (Symphony::Author()->isDeveloper()) {
 				$columns = array_merge($columns, array(
 					array(
 						'label' => __('User Type'),
@@ -84,7 +84,7 @@
 			else{
 				foreach($authors as $a){
 					// Setup each cell
-					if(Administration::instance()->Author->isDeveloper() || Administration::instance()->Author->get('id') == $a->get('id')) {
+					if(Symphony::Author()->isDeveloper() || Symphony::Author()->get('id') == $a->get('id')) {
 						$td1 = Widget::TableData(
 							Widget::Anchor($a->getFullName(), Administration::instance()->getCurrentPageURL() . 'edit/' . $a->get('id') . '/', $a->get('username'), 'author')
 						);
@@ -101,21 +101,21 @@
 					} else {
 						$td3 = Widget::TableData(__('Unknown'), 'inactive');
 					}
-					
+
 					$td4 = Widget::TableData($a->isDeveloper()? __("Developer") : __("Author"));
-					
+
 					$languages = Lang::getAvailableLanguages();
-					
+
 					$td5 = Widget::TableData($a->get("language") == NULL ? __("System Default") : $languages[$a->get("language")]);
 
-					if (Administration::instance()->Author->isDeveloper()) {
-						if ($a->get('id') != Administration::instance()->Author->get('id')) {
+					if (Symphony::Author()->isDeveloper()) {
+						if ($a->get('id') != Symphony::Author()->get('id')) {
 							$td3->appendChild(Widget::Input('items['.$a->get('id').']', NULL, 'checkbox'));
 						}
 					}
 
 					// Add a row to the body array, assigning each cell to the row
-					if(Administration::instance()->Author->isDeveloper())
+					if(Symphony::Author()->isDeveloper())
 						$aTableBody[] = Widget::TableRow(array($td1, $td2, $td3, $td4, $td5));
 					else
 						$aTableBody[] = Widget::TableRow(array($td1, $td2, $td3));
@@ -131,7 +131,7 @@
 
 			$this->Form->appendChild($table);
 
-			if(Administration::instance()->Author->isDeveloper()) {
+			if(Symphony::Author()->isDeveloper()) {
 				$tableActions = new XMLElement('div');
 				$tableActions->setAttribute('class', 'actions');
 
@@ -171,7 +171,7 @@
 
 					foreach($checked as $author_id) {
 						$a = AuthorManager::fetchByID($author_id);
-						if(is_object($a) && $a->get('id') != Administration::instance()->Author->get('id')) {
+						if(is_object($a) && $a->get('id') != Symphony::Author()->get('id')) {
 							AuthorManager::delete($author_id);
 						}
 					}
@@ -197,7 +197,7 @@
 			// Handle unknown context
 			if(!in_array($this->_context[0], array('new', 'edit'))) Administration::instance()->errorPageNotFound();
 
-			if($this->_context[0] == 'new' && !Administration::instance()->Author->isDeveloper()) {
+			if($this->_context[0] == 'new' && !Symphony::Author()->isDeveloper()) {
 				Administration::instance()->customError(__('Access Denied'), __('You are not authorised to access this page.'));
 			}
 
@@ -244,9 +244,9 @@
 			}
 			else $author = new Author;
 
-			if($this->_context[0] == 'edit' && $author->get('id') == Administration::instance()->Author->get('id')) $isOwner = true;
+			if($this->_context[0] == 'edit' && $author->get('id') == Symphony::Author()->get('id')) $isOwner = true;
 
-			if ($this->_context[0] == 'edit' && !$isOwner && !Administration::instance()->Author->isDeveloper()) {
+			if ($this->_context[0] == 'edit' && !$isOwner && !Symphony::Author()->isDeveloper()) {
 				Administration::instance()->customError(__('Access Denied'), __('You are not authorised to edit other authors.'));
 			}
 
@@ -294,7 +294,7 @@
 			$div->appendChild((isset($this->_errors['username']) ? Widget::wrapFormElementWithError($label, $this->_errors['username']) : $label));
 
 			// Only developers can change the user type. Primary account should NOT be able to change this
-			if (Administration::instance()->Author->isDeveloper() && !$author->isPrimaryAccount()) {
+			if (Symphony::Author()->isDeveloper() && !$author->isPrimaryAccount()) {
 				$label = Widget::Label(__('User Type'));
 
 				$options = array(
@@ -313,7 +313,7 @@
 			if($this->_context[0] == 'edit') {
 				$div->setAttribute('id', 'change-password');
 
-				if(!Administration::instance()->Author->isDeveloper() || $isOwner === true){
+				if(!Symphony::Author()->isDeveloper() || $isOwner === true){
 					$div->setAttribute('class', 'triple group');
 
 					$label = Widget::Label(__('Old Password'));
@@ -342,7 +342,7 @@
 				$group->appendChild(new XMLElement('p', __('Leave password fields blank to keep the current password'), array('class' => 'help')));
 			}
 
-			if(Administration::instance()->Author->isDeveloper()) {
+			if(Symphony::Author()->isDeveloper()) {
 				$label = Widget::Label();
 				$input = Widget::Input('fields[auth_token_active]', 'yes', 'checkbox');
 
@@ -525,7 +525,7 @@
 
 			if(!$author_id = $this->_context[1]) redirect(SYMPHONY_URL . '/system/authors/');
 
-			$isOwner = ($author_id == Administration::instance()->Author->get('id'));
+			$isOwner = ($author_id == Symphony::Author()->get('id'));
 
 			if(@array_key_exists('save', $_POST['action']) || @array_key_exists('done', $_POST['action'])) {
 
@@ -540,16 +540,16 @@
 					$authenticated = true;
 				}
 				// Developers don't need to specify the old password, unless it's their own account
-				else if(Administration::instance()->Author->isDeveloper()){
+				else if(Symphony::Author()->isDeveloper()){
 					$authenticated = true;
 				}
 
 				$this->_Author->set('id', $author_id);
 
-				if ($this->_Author->isPrimaryAccount() || ($isOwner && Administration::instance()->Author->isDeveloper())){
+				if ($this->_Author->isPrimaryAccount() || ($isOwner && Symphony::Author()->isDeveloper())){
 					$this->_Author->set('user_type', 'developer'); // Primary accounts are always developer, Developers can't lower their level
 				}
-				elseif (Administration::instance()->Author->isDeveloper() && isset($fields['user_type'])){
+				elseif (Symphony::Author()->isDeveloper() && isset($fields['user_type'])){
 					$this->_Author->set('user_type', $fields['user_type']); // Only developer can change user type
 				}
 

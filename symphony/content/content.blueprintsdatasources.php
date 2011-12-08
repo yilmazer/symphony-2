@@ -1077,9 +1077,9 @@
 					'name' => $fields['name'],
 					'version' => 'Symphony ' . Symphony::Configuration()->get('version', 'symphony'),
 					'release date' => DateTimeObj::getGMT('c'),
-					'author name' => Administration::instance()->Author->getFullName(),
+					'author name' => Symphony::Author()->getFullName(),
 					'author website' => URL,
-					'author email' => Administration::instance()->Author->get('email')
+					'author email' => Symphony::Author()->get('email')
 				);
 
 				$source = $fields['source'];

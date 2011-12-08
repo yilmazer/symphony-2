@@ -6,7 +6,7 @@
 	require DOCROOT . '/symphony/lib/boot/bundle.php';
 	require CORE . '/class.symphony.php';
 
-	$launch = function($mode) {
+	$launcher = function($mode) {
 		if (strtolower($mode) == 'administration') {
 			require_once CORE . "/class.administration.php";
 
@@ -29,7 +29,12 @@
 		echo $output;
 	};
 
-	$launch(
+	// These things need to be started early:
+	Symphony::initialiseConfiguration();
+	Symphony::initialiseDatabase();
+	Symphony::initialiseExtensionManager();
+
+	$launcher(
 		isset($_GET['mode'])
 			? $_GET['mode']
 			: null

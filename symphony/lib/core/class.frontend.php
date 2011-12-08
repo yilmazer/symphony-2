@@ -72,7 +72,7 @@
 				return $this->loginFromToken($_REQUEST['auth-token']);
 			}
 
-			return parent::isLoggedIn();
+			return Symphony::initialiseLogin();
 		}
 
 		/**

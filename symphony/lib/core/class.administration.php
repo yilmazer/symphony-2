@@ -84,7 +84,7 @@
 				return $this->loginFromToken($_REQUEST['auth-token']);
 			}
 
-			return parent::isLoggedIn();
+			return Symphony::initialiseLogin();
 		}
 
 		/**
@@ -223,12 +223,11 @@
 		 * @return boolean
 		 */
 		private function __canAccessAlerts() {
-			if($this->Page instanceof AdministrationPage && $this->isLoggedIn() && Administration::instance()->Author->isDeveloper()) {
-				return true;
-			}
-			else {
-				return false;
-			}
+			return (
+				$this->Page instanceof AdministrationPage
+				&& $this->isLoggedIn()
+				&& Symphony::Author()->isDeveloper()
+			);
 		}
 
 		/**

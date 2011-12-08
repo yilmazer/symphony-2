@@ -595,7 +595,7 @@
 
 				$entry =& EntryManager::create();
 				$entry->set('section_id', $section_id);
-				$entry->set('author_id', Administration::instance()->Author->get('id'));
+				$entry->set('author_id', Symphony::Author()->get('id'));
 				$entry->set('creation_date', DateTimeObj::get('Y-m-d H:i:s'));
 				$entry->set('creation_date_gmt', DateTimeObj::getGMT('Y-m-d H:i:s'));
 

@@ -310,9 +310,9 @@
 					'name' => $fields['name'],
 					'version' => 'Symphony ' . Symphony::Configuration()->get('version', 'symphony'),
 					'release date' => DateTimeObj::getGMT('c'),
-					'author name' => Administration::instance()->Author->getFullName(),
+					'author name' => Symphony::Author()->getFullName(),
 					'author website' => URL,
-					'author email' => Administration::instance()->Author->get('email'),
+					'author email' => Symphony::Author()->get('email'),
 					'trigger condition' => $rootelement
 				);
 
@@ -411,7 +411,7 @@
 				if(in_array('send-email', $filters)){
 					$documentation_parts[] = new XMLElement('h3', __('Send Notification Email'));
 
-					$documentation_parts[] = new XMLElement('p', 
+					$documentation_parts[] = new XMLElement('p',
 						__('Upon the event successfully saving the entry, this option takes input from the form and send an email to the desired recipient.')
 						. ' <strong>'
 						. __('It currently does not work with ‘Allow Multiple’')

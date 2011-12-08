@@ -356,10 +356,10 @@
 			if($page_limit == 'author')
 				return true;
 
-			elseif($page_limit == 'developer' && Administration::instance()->Author->isDeveloper())
+			elseif($page_limit == 'developer' && Symphony::Author()->isDeveloper())
 				return true;
 
-			elseif($page_limit == 'primary' && Administration::instance()->Author->isPrimaryAccount())
+			elseif($page_limit == 'primary' && Symphony::Author()->isPrimaryAccount())
 				return true;
 
 			return false;
@@ -541,10 +541,10 @@
 				if(!isset($n['limit']) || $n['limit'] == 'author')
 					$can_access = true;
 
-				elseif($n['limit'] == 'developer' && Administration::instance()->Author->isDeveloper())
+				elseif($n['limit'] == 'developer' && Symphony::Author()->isDeveloper())
 					$can_access = true;
 
-				elseif($n['limit'] == 'primary' && Administration::instance()->Author->isPrimaryAccount())
+				elseif($n['limit'] == 'primary' && Symphony::Author()->isPrimaryAccount())
 					$can_access = true;
 
 				if($can_access) {
@@ -563,10 +563,10 @@
 							if(!isset($c['limit']) || $c['limit'] == 'author')
 								$can_access_child = true;
 
-							elseif($c['limit'] == 'developer' && Administration::instance()->Author->isDeveloper())
+							elseif($c['limit'] == 'developer' && Symphony::Author()->isDeveloper())
 								$can_access_child = true;
 
-							elseif($c['limit'] == 'primary' && Administration::instance()->Author->isPrimaryAccount())
+							elseif($c['limit'] == 'primary' && Symphony::Author()->isPrimaryAccount())
 								$can_access_child = true;
 
 							if($can_access_child) {
@@ -890,21 +890,22 @@
 		 * footer HTML, which is an XMLElement of a `<ul>` element.
 		 * Since Symphony 2.3, it no longer uses the `AddElementToFooter` delegate.
 		 */
-		public function appendUserLinks(){
+		public function appendUserLinks() {
+			$author = Symphony::Author();
 			$ul = new XMLElement('ul', NULL, array('id' => 'session'));
 
 			$li = new XMLElement('li');
 			$li->appendChild(
 				Widget::Anchor(
-					Administration::instance()->Author->getFullName(),
-					SYMPHONY_URL . '/system/authors/edit/' . Administration::instance()->Author->get('id') . '/',
+					$author->getFullName(),
+					SYMPHONY_URL . '/system/authors/edit/' . $author->get('id') . '/',
 					null,
 					null,
 					null,
 					array(
-						'data-id' => Administration::instance()->Author->get('id'),
-						'data-name' => Administration::instance()->Author->get('first_name'),
-						'data-type' => Administration::instance()->Author->get('user_type')
+						'data-id' => $author->get('id'),
+						'data-name' => $author->get('first_name'),
+						'data-type' => $author->get('user_type')
 					)
 				)
 			);
