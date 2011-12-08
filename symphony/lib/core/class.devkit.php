@@ -43,6 +43,18 @@
 			return self::$_instance;
 		}
 
+		public static function buildQueryString($params = array()) {
+			parse_str($_SERVER['QUERY_STRING'], $query);
+
+			$query = array_diff_key($query, array(
+				'symphony-page'	=> null
+			));
+
+			$query = array_merge($query, $params);
+
+			return '?' . http_build_query($query, '&');
+		}
+
 		/**
 		 * Returns the current Page path, excluding the domain and Symphony path.
 		 *
