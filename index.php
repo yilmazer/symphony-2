@@ -22,7 +22,7 @@
 	Symphony::ExtensionManager()->notifyMembers(
 		'ModifySymphonyLauncher', '/all/',
 		array(
-			'launcher'	=> $launcher
+			'launcher'	=> &$launcher
 		)
 	);
 

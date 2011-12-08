@@ -63,4 +63,6 @@
 		$output = $renderer->display(getCurrentPage());
 
 		echo $output;
+
+		return $renderer;
 	};
