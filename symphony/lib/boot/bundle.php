@@ -43,6 +43,11 @@
 	include(CONFIG);
 
 	$launcher = function($mode) {
+		header('Expires: Mon, 12 Dec 1982 06:14:00 GMT');
+		header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+		header('Cache-Control: no-cache, must-revalidate, max-age=0');
+		header('Pragma: no-cache');
+
 		if (strtolower($mode) == 'administration') {
 			require_once CORE . "/class.administration.php";
 
@@ -55,12 +60,9 @@
 			$renderer = Frontend::instance();
 		}
 
-		header('Expires: Mon, 12 Dec 1982 06:14:00 GMT');
-		header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
-		header('Cache-Control: no-cache, must-revalidate, max-age=0');
-		header('Pragma: no-cache');
-
 		$output = $renderer->display(getCurrentPage());
+
+		header('Content-Length: ' . strlen($output));
 
 		echo $output;
 
