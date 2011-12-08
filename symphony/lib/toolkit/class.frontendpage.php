@@ -133,7 +133,6 @@
 		 * be rendered. A number of delegates are fired during stages of execution for extensions
 		 * to hook into.
 		 *
-		 * @uses FrontendDevKitResolve
 		 * @uses FrontendOutputPreGenerate
 		 * @uses FrontendPreRenderHeaders
 		 * @uses FrontendOutputPostGenerate
@@ -145,106 +144,78 @@
 		 * exactly the same as the 'view-source' from your browser
 		 */
 		public function generate($page) {
-			$full_generate = true;
-			$devkit = null;
 			$output = null;
-
-			if ($this->is_logged_in) {
-				/**
-				 * Allows a devkit object to be specified, and stop continued execution:
-				 *
-				 * @delegate FrontendDevKitResolve
-				 * @param string $context
-				 * '/frontend/'
-				 * @param boolean $full_generate
-				 *  Whether this page will be completely generated (ie. invoke the XSLT transform)
-				 *  or not, by default this is true. Passed by reference
-				 * @param mixed $devkit
-				 *  Allows a devkit to register to this page
-				 */
-				Symphony::ExtensionManager()->notifyMembers('FrontendDevKitResolve', '/frontend/', array(
-					'full_generate'	=> &$full_generate,
-					'devkit'		=> &$devkit
-				));
-			}
 
 			$this->_page = $page;
 			$this->__buildPage();
 
-			if ($full_generate) {
-				/**
-				 * Immediately before generating the page. Provided with the page object, XML and XSLT
-				 * @delegate FrontendOutputPreGenerate
-				 * @param string $context
-				 * '/frontend/'
-				 * @param FrontendPage $page
-				 *  This FrontendPage object, by reference
-				 * @param string $xml
-				 *  This pages XML, including the Parameters, Datasource and Event XML, by reference
-				 * @param string $xsl
-				 *  This pages XSLT
-				 */
-				Symphony::ExtensionManager()->notifyMembers('FrontendOutputPreGenerate', '/frontend/', array(
-					'page'	=> &$this,
-					'xml'	=> &$this->_xml,
-					'xsl'	=> $this->_xsl
-				));
+			/**
+			 * Immediately before generating the page. Provided with the page object, XML and XSLT
+			 * @delegate FrontendOutputPreGenerate
+			 * @param string $context
+			 * '/frontend/'
+			 * @param FrontendPage $page
+			 *  This FrontendPage object, by reference
+			 * @param string $xml
+			 *  This pages XML, including the Parameters, Datasource and Event XML, by reference
+			 * @param string $xsl
+			 *  This pages XSLT
+			 */
+			Symphony::ExtensionManager()->notifyMembers('FrontendOutputPreGenerate', '/frontend/', array(
+				'page'	=> &$this,
+				'xml'	=> &$this->_xml,
+				'xsl'	=> $this->_xsl
+			));
 
-				if (is_null($devkit)) {
-					if(General::in_iarray('XML', $this->_pageData['type'])) {
-						$this->addHeaderToPage('Content-Type', 'text/xml; charset=utf-8');
-					}
-					else if(General::in_iarray('JSON', $this->_pageData['type'])) {
-						$this->addHeaderToPage('Content-Type', 'application/json; charset=utf-8');
-					}
-					else{
-						$this->addHeaderToPage('Content-Type', 'text/html; charset=utf-8');
-					}
-
-					if(in_array('404', $this->_pageData['type'])){
-						$this->addHeaderToPage('HTTP/1.0 404 Not Found');
-					}
-					elseif(in_array('403', $this->_pageData['type'])){
-						$this->addHeaderToPage('HTTP/1.0 403 Forbidden');
-					}
-				}
-
-				/**
-				 * This is just prior to the page headers being rendered, and is suitable for changing them
-				 * @delegate FrontendPreRenderHeaders
-				 * @param string $context
-				 * '/frontend/'
-				 */
-				Symphony::ExtensionManager()->notifyMembers('FrontendPreRenderHeaders', '/frontend/');
-
-				$output = parent::generate();
-
-				/**
-				 * Immediately after generating the page. Provided with string containing page source
-				 * @delegate FrontendOutputPostGenerate
-				 * @param string $context
-				 * '/frontend/'
-				 * @param string $output
-				 *  The generated output of this page, ie. a string of HTML, passed by reference
-				 */
-				Symphony::ExtensionManager()->notifyMembers('FrontendOutputPostGenerate', '/frontend/', array('output' => &$output));
-
-				if (is_null($devkit) && !$output) {
-					$errstr = NULL;
-
-					while (list($key, $val) = $this->Proc->getError()) {
-						$errstr .= 'Line: ' . $val['line'] . ' - ' . $val['message'] . PHP_EOL;
-					}
-
-					GenericExceptionHandler::$enabled = true;
-					throw new SymphonyErrorPage(trim($errstr), NULL, 'xslt', array('proc' => clone $this->Proc));
-				}
+			if (General::in_iarray('XML', $this->_pageData['type'])) {
+				$this->addHeaderToPage('Content-Type', 'text/xml; charset=utf-8');
 			}
 
-			if (!is_null($devkit)) {
-				$devkit->prepare($this, $this->_pageData, $this->_xml, $this->_param, $output);
+			else if (General::in_iarray('JSON', $this->_pageData['type'])) {
+				$this->addHeaderToPage('Content-Type', 'application/json; charset=utf-8');
+			}
 
-				return $devkit->build();
+			else {
+				$this->addHeaderToPage('Content-Type', 'text/html; charset=utf-8');
+			}
+
+			if (in_array('404', $this->_pageData['type'])) {
+				$this->addHeaderToPage('HTTP/1.0 404 Not Found');
+			}
+
+			else if (in_array('403', $this->_pageData['type'])) {
+				$this->addHeaderToPage('HTTP/1.0 403 Forbidden');
+			}
+
+			/**
+			 * This is just prior to the page headers being rendered, and is suitable for changing them
+			 * @delegate FrontendPreRenderHeaders
+			 * @param string $context
+			 * '/frontend/'
+			 */
+			Symphony::ExtensionManager()->notifyMembers('FrontendPreRenderHeaders', '/frontend/');
+
+			$output = parent::generate();
+
+			/**
+			 * Immediately after generating the page. Provided with string containing page source
+			 * @delegate FrontendOutputPostGenerate
+			 * @param string $context
+			 * '/frontend/'
+			 * @param string $output
+			 *  The generated output of this page, ie. a string of HTML, passed by reference
+			 */
+			Symphony::ExtensionManager()->notifyMembers('FrontendOutputPostGenerate', '/frontend/', array('output' => &$output));
+
+			if (!$output) {
+				$errstr = NULL;
+
+				while (list($key, $val) = $this->Proc->getError()) {
+					$errstr .= 'Line: ' . $val['line'] . ' - ' . $val['message'] . PHP_EOL;
+				}
+
+				GenericExceptionHandler::$enabled = true;
+				throw new SymphonyErrorPage(trim($errstr), NULL, 'xslt', array('proc' => clone $this->Proc));
 			}
 
 			// Display the Event Results in the page source if the user is logged
