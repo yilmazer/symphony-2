@@ -34,6 +34,21 @@
 	Symphony::initialiseDatabase();
 	Symphony::initialiseExtensionManager();
 
+	/**
+	 * Overload the default Symphony launcher logic.
+	 * @delegate ModifySymphonyLauncher
+	 * @param string $context
+	 * '/all/'
+	 * @param string $launcher
+	 *  The default launcher closure.
+	 */
+	Symphony::ExtensionManager()->notifyMembers(
+		'ModifySymphonyLauncher', '/all/',
+		array(
+			'launcher'	=> $launcher
+		)
+	);
+
 	$launcher(
 		isset($_GET['mode'])
 			? $_GET['mode']
