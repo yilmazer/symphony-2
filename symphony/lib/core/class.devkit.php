@@ -76,12 +76,23 @@
 		 * @see core.Symphony#loginFromToken()
 		 * @return boolean
 		 */
-		public function isLoggedIn(){
-			if (isset($_REQUEST['auth-token']) && $_REQUEST['auth-token'] && in_array(strlen($_REQUEST['auth-token']), array(6, 8))) {
-				return $this->loginFromToken($_REQUEST['auth-token']);
+		public function isLoggedIn() {
+			if (
+				isset($_REQUEST['auth-token'])
+				&& $_REQUEST['auth-token']
+				&& in_array(strlen($_REQUEST['auth-token']), array(6, 8))
+			) {
+				$this->loginFromToken($_REQUEST['auth-token']);
 			}
 
-			return Symphony::initialiseLogin();
+			else {
+				Symphony::initialiseLogin();
+			}
+
+			return (
+				is_null(Symphony::Author()) === false
+				&& Symphony::Author()->isDeveloper()
+			);
 		}
 
 		/**
