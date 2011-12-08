@@ -3,27 +3,34 @@
 	define('DOCROOT', rtrim(dirname(__FILE__), '\\/'));
 	define('DOMAIN', rtrim(rtrim($_SERVER['HTTP_HOST'], '\\/') . dirname($_SERVER['PHP_SELF']), '\\/'));
 
-	require(DOCROOT . '/symphony/lib/boot/bundle.php');
+	require DOCROOT . '/symphony/lib/boot/bundle.php';
+	require CORE . '/class.symphony.php';
 
-	function renderer($mode='frontend'){
-		if(!in_array($mode, array('frontend', 'administration'))){
-			throw new Exception('Invalid Symphony Renderer mode specified. Must be either "frontend" or "administration".');
+	$launch = function($mode) {
+		if (strtolower($mode) == 'administration') {
+			require_once CORE . "/class.administration.php";
+
+			$renderer = Administration::instance();
 		}
-		require_once(CORE . "/class.{$mode}.php");
-		return ($mode == 'administration' ? Administration::instance() : Frontend::instance());
-	}
 
-	$renderer = (isset($_GET['mode']) && strtolower($_GET['mode']) == 'administration'
-			? 'administration'
-			: 'frontend');
+		else {
+			require_once CORE . "/class.frontend.php";
 
-	header('Expires: Mon, 12 Dec 1982 06:14:00 GMT');
-	header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
-	header('Cache-Control: no-cache, must-revalidate, max-age=0');
-	header('Pragma: no-cache');
+			$renderer = Frontend::instance();
+		}
 
-	$output = renderer($renderer)->display(getCurrentPage());
+		header('Expires: Mon, 12 Dec 1982 06:14:00 GMT');
+		header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+		header('Cache-Control: no-cache, must-revalidate, max-age=0');
+		header('Pragma: no-cache');
 
-	echo $output;
+		$output = $renderer->display(getCurrentPage());
 
-	exit;
+		echo $output;
+	};
+
+	$launch(
+		isset($_GET['mode'])
+			? $_GET['mode']
+			: null
+	);
