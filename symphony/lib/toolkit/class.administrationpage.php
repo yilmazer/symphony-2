@@ -289,7 +289,6 @@
 
 			if(isset($_REQUEST['action'])){
 				$this->action();
-				Symphony::Profiler()->sample('Page action run', PROFILE_LAP);
 			}
 
 			// Wrapper + Header
@@ -315,8 +314,6 @@
 			$this->view();
 
 			$this->appendAlert();
-
-			Symphony::Profiler()->sample('Page content created', PROFILE_LAP);
 		}
 
 		/**
@@ -598,7 +595,6 @@
 			$navElement->appendChild($contentNav);
 			$navElement->appendChild($structureNav);
 			$this->Header->appendChild($navElement);
-			Symphony::Profiler()->sample('Navigation Built', PROFILE_LAP);
 		}
 
 		/**
@@ -938,5 +934,4 @@
 		public function __fetchAvailablePageTypes(){
 			return PageManager::fetchAvailablePageTypes();
 		}
-
 	}

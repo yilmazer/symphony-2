@@ -19,7 +19,6 @@
 	require_once(TOOLKIT . '/class.xmlelement.php');
 	require_once(TOOLKIT . '/class.widget.php');
 	require_once(TOOLKIT . '/class.general.php');
-	require_once(TOOLKIT . '/class.profiler.php');
 	require_once(TOOLKIT . '/class.author.php');
 	require_once(TOOLKIT . '/class.email.php');
 	require_once(TOOLKIT . '/class.mysql.php');
@@ -65,7 +64,7 @@
 		 * An instance of the Profiler class
 		 * @var Profiler
 		 */
-		private static $Profiler = null;
+		//private static $Profiler = null;
 
 		/**
 		 * An instance of the Cookie class
@@ -88,9 +87,6 @@
 		 * the initial Configuration values from the `CONFIG` file
 		 */
 		protected function __construct(){
-			self::$Profiler = Profiler::instance();
-			self::$Profiler->sample('Engine Initialisation');
-
 			if(get_magic_quotes_gpc()) {
 				General::cleanArray($_SERVER);
 				General::cleanArray($_COOKIE);
@@ -180,9 +176,9 @@
 		 * @since Symphony 2.3
 		 * @return Profiler
 		 */
-		public static function Profiler(){
-			return self::$Profiler;
-		}
+		//public static function Profiler(){
+		//	return self::$Profiler;
+		//}
 
 		/**
 		 * Setter for `$Log`. This function uses the configuration

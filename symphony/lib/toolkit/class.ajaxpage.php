@@ -51,10 +51,7 @@
 		/**
 		 * The constructor for AJAXPage. This sets the page status to `STATUS_OK`,
 		 * the default content type to text/xml and initialises `$this->_Result`
-		 * with an XMLElement. The constructor also starts the Profiler for this
-		 * page template.
-		 *
-		 * @see toolkit.Profiler
+		 * with an XMLElement.
 		 */
 		public function __construct() {
 			$this->_Result = new XMLElement('result');
@@ -63,8 +60,6 @@
 			$this->_status = self::STATUS_OK;
 
 			$this->addHeaderToPage('Content-Type', 'text/xml');
-
-			Symphony::Profiler()->sample('Page template created', PROFILE_LAP);
 		}
 
 		/**

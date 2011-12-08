@@ -346,8 +346,7 @@
 		/**
 		 * Called by index.php, this function is responsible for rendering the current
 		 * page on the Frontend. Two delegates are fired, AdminPagePreGenerate and
-		 * AdminPagePostGenerate. This function runs the Profiler for the page build
-		 * process.
+		 * AdminPagePostGenerate.
 		 *
 		 * @uses AdminPagePreGenerate
 		 * @uses AdminPagePostGenerate
@@ -360,7 +359,6 @@
 		 *  The HTML of the page to return
 		 */
 		public function display($page){
-			Symphony::Profiler()->sample('Page build process started');
 			$this->__buildPage($page);
 
 			/**
@@ -386,8 +384,6 @@
 			 *  The resulting backend page HTML as a string, passed by reference
 			 */
 			Symphony::ExtensionManager()->notifyMembers('AdminPagePostGenerate', '/backend/', array('output' => &$output));
-
-			Symphony::Profiler()->sample('Page built');
 
 			return $output;
 		}
