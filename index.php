@@ -7,7 +7,7 @@
 	include DOCROOT . '/symphony/lib/boot/bundle.php';
 
 	// Begin Symphony proper:
-	launcher(
+	symphony(
 		isset($_GET['mode'])
 			? $_GET['mode']
 			: null

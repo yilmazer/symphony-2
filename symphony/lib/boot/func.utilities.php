@@ -104,7 +104,7 @@
 	/**
 	 * Responsible for picking the launcher function and starting it.
 	 */
-	function launcher($mode) {
+	function symphony($mode) {
 		$launcher = SYMPHONY_LAUNCHER;
 		$launcher($mode);
 	}
