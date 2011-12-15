@@ -383,7 +383,12 @@
 
 			$this->__appendBodyId();
 			$this->__appendBodyClass($this->_context);
-			return parent::generate();
+			
+			$output = parent::generate();
+
+			Console::registerOutput($output);
+
+			return $output;
 		}
 
 		/**

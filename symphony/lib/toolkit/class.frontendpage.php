@@ -225,6 +225,8 @@
 				$output .= PHP_EOL . '<!-- ' . PHP_EOL . $this->_events_xml->generate(true) . ' -->';
 			}
 
+			Console::registerOutput($output);
+
 			return $output;
 		}
 
@@ -410,15 +412,19 @@
 			}
 			$xml->prependChild($params);
 
-			$this->setXML($xml->generate(true, 0));
+			$input = $xml->generate(true, 0);
+			$this->setXML($input);
 
-			$xsl = '<?xml version="1.0" encoding="UTF-8"?>
+			$template = '<?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 	<xsl:import href="./workspace/pages/' . basename($page['filelocation']).'"/>
 </xsl:stylesheet>';
 
-			$this->setXSL($xsl, false);
+			$this->setXSL($template, false);
 			$this->setRuntimeParam($this->_param);
+
+			Console::registerInput($input);
+			Console::registerTemplate($template);
 		}
 
 		/**

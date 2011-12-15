@@ -34,10 +34,10 @@
 	ini_set('magic_quotes_runtime', false);
 
 	// Create the Console, either with the X-Symphony-Console-Id or a new random ID:
-	Console::instance(
+	Console::init(
 		isset($_SERVER['HTTP_X_SYMPHONY_CONSOLE_ID'])
 			? $_SERVER['HTTP_X_SYMPHONY_CONSOLE_ID']
-			: md5(rand())
+			: sha1(rand())
 	);
 
 	if (!file_exists(CONFIG)) {
