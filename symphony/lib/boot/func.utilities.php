@@ -10,7 +10,7 @@
 	 *
 	 *	@param string $url
 	 */
-	function redirect ($url){
+	function redirect($url) {
 		// Just make sure.
 		$url = str_replace('Location:', null, $url);
 
@@ -99,4 +99,46 @@
 		}
 
 		return $val;
+	}
+
+	/**
+	 * Responsible for picking the launcher function and starting it.
+	 */
+	function launcher($mode) {
+		$launcher = SYMPHONY_LAUNCHER;
+		$launcher($mode);
+	}
+
+	/**
+	 * Responsible for launching a standard symphony instance and
+	 * sending output to the browser.
+	 *
+	 *	@param string $val (optional)
+	 *	@return integer
+	 */
+	function symphony_launcher($mode) {
+		header('Expires: Mon, 12 Dec 1982 06:14:00 GMT');
+		header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+		header('Cache-Control: no-cache, must-revalidate, max-age=0');
+		header('Pragma: no-cache');
+
+		if (strtolower($mode) == 'administration') {
+			require_once CORE . "/class.administration.php";
+
+			$renderer = Administration::instance();
+		}
+
+		else {
+			require_once CORE . "/class.frontend.php";
+
+			$renderer = Frontend::instance();
+		}
+
+		$output = $renderer->display(getCurrentPage());
+
+		header('Content-Length: ' . strlen($output));
+
+		echo $output;
+
+		return $renderer;
 	}

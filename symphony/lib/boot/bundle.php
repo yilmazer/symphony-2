@@ -4,6 +4,11 @@
 	 * @package boot
 	 */
 
+	require_once DOCROOT . '/symphony/lib/boot/func.utilities.php';
+	require_once DOCROOT . '/symphony/lib/boot/defines.php';
+	require_once CORE . '/class.console.php';
+	require_once CORE . '/class.symphony.php';
+
 	if(!defined('PHP_VERSION_ID')){
 		$version = PHP_VERSION;
 
@@ -18,20 +23,24 @@
 		define('PHP_VERSION_ID', ($version{0} * 10000 + $version{2} * 100 + $version{4}));
 	}
 
-	if (PHP_VERSION_ID >= 50300){
-		error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
-	}
-	else{
-		error_reporting(E_ALL & ~E_NOTICE);
-	}
+	// Set appropriate error reporting:
+	error_reporting(
+		PHP_VERSION_ID >= 50300
+			? E_ALL & ~E_NOTICE & ~E_DEPRECATED
+			: E_ALL & ~E_NOTICE
+	);
 
-	ini_set('magic_quotes_runtime', 0);
+	// Turn of old-style magic:
+	ini_set('magic_quotes_runtime', false);
 
-	require_once(DOCROOT . '/symphony/lib/boot/func.utilities.php');
-	require_once(DOCROOT . '/symphony/lib/boot/defines.php');
+	// Create the Console, either with the X-Symphony-Console-Id or a new random ID:
+	Console::instance(
+		isset($_SERVER['HTTP_X_SYMPHONY_CONSOLE_ID'])
+			? $_SERVER['HTTP_X_SYMPHONY_CONSOLE_ID']
+			: md5(rand())
+	);
 
 	if (!file_exists(CONFIG)) {
-
 		if (file_exists(DOCROOT . '/install/index.php')) {
 			header(sprintf('Location: %s/install/', URL));
 			exit;
@@ -40,31 +49,25 @@
 		die('<h2>Error</h2><p>Could not locate Symphony configuration file. Please check <code>manifest/config.php</code> exists.</p>');
 	}
 
-	include(CONFIG);
+	// Load configuration file:
+	include CONFIG;
 
-	$launcher = function($mode) {
-		header('Expires: Mon, 12 Dec 1982 06:14:00 GMT');
-		header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
-		header('Cache-Control: no-cache, must-revalidate, max-age=0');
-		header('Pragma: no-cache');
+	// These things need to be started early:
+	Symphony::initialiseConfiguration();
+	Symphony::initialiseDatabase();
+	Symphony::initialiseExtensionManager();
 
-		if (strtolower($mode) == 'administration') {
-			require_once CORE . "/class.administration.php";
+	/**
+	 * Overload the default Symphony launcher logic.
+	 * @delegate ModifySymphonyLauncher
+	 * @param string $context
+	 * '/all/'
+	 */
+	Symphony::ExtensionManager()->notifyMembers(
+		'ModifySymphonyLauncher', '/all/'
+	);
 
-			$renderer = Administration::instance();
-		}
-
-		else {
-			require_once CORE . "/class.frontend.php";
-
-			$renderer = Frontend::instance();
-		}
-
-		$output = $renderer->display(getCurrentPage());
-
-		header('Content-Length: ' . strlen($output));
-
-		echo $output;
-
-		return $renderer;
-	};
+	// Use default launcher:
+	if (defined('SYMPHONY_LAUNCHER') === false) {
+		define('SYMPHONY_LAUNCHER', 'symphony_launcher');
+	}

@@ -215,6 +215,13 @@
 	define_safe('__SECURE__', (HTTPS == 'on'));
 
 	/**
+	 * The current domain name.
+	 * @var string
+	 */
+
+	define_safe('DOMAIN', rtrim(rtrim($_SERVER['HTTP_HOST'], '\\/') . dirname($_SERVER['PHP_SELF']), '\\/'));
+
+	/**
 	 * The base URL of this Symphony install, minus the symphony path.
 	 * @var string
 	 */
