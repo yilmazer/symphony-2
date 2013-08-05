@@ -1,59 +1,72 @@
 <?php
 
-	require_once(TOOLKIT . '/class.datasource.php');
+namespace SymphonyCms\Datasources;
 
-	Class datasource<!-- CLASS NAME --> extends <!-- CLASS EXTENDS --> {
+use \SymphonyCms\Exceptions\FrontendPageNotFoundException;
+use \SymphonyCms\Exceptions\FrontendPageNotFoundExceptionHandler;
+use \SymphonyCms\Toolkit\Datasource;
+use \SymphonyCms\Datasources\<!-- CLASS EXTENDS -->;
+use \SymphonyCms\Toolkit\XMLElement;
 
-		<!-- VAR LIST -->
+class <!-- CLASS NAME -->Datasource extends <!-- CLASS EXTENDS -->
+{
+    <!-- VAR LIST -->
 
-		<!-- FILTERS -->
+    <!-- FILTERS -->
 
-		<!-- INCLUDED ELEMENTS -->
+    <!-- INCLUDED ELEMENTS -->
 
-		public function __construct($env=NULL, $process_params=true) {
-			parent::__construct($env, $process_params);
-			$this->_dependencies = array(<!-- DS DEPENDENCY LIST -->);
-		}
+    public function __construct($env = null, $process_params = true)
+    {
+        parent::__construct($env, $process_params);
 
-		public function about() {
-			return array(
-				'name' => '<!-- NAME -->',
-				'author' => array(
-					'name' => '<!-- AUTHOR NAME -->',
-					'website' => '<!-- AUTHOR WEBSITE -->',
-					'email' => '<!-- AUTHOR EMAIL -->'),
-				'version' => '<!-- VERSION -->',
-				'release-date' => '<!-- RELEASE DATE -->'
-			);
-		}
+        $this->_dependencies = array(<!-- DS DEPENDENCY LIST -->);
+    }
 
-		public function getSource() {
-			return '<!-- SOURCE -->';
-		}
+    public function about()
+    {
+        return array(
+            'name' => '<!-- NAME -->',
+            'author' => array(
+                'name' => '<!-- AUTHOR NAME -->',
+                'website' => '<!-- AUTHOR WEBSITE -->',
+                'email' => '<!-- AUTHOR EMAIL -->'),
+            'version' => '<!-- VERSION -->',
+            'release-date' => '<!-- RELEASE DATE -->'
+        );
+    }
 
-		public function allowEditorToParse() {
-			return true;
-		}
+    public function getSource()
+    {
+        return '<!-- SOURCE -->';
+    }
 
-		public function execute(array &$param_pool = null) {
-			$result = new XMLElement($this->dsParamROOTELEMENT);
+    public function allowEditorToParse()
+    {
+        return true;
+    }
 
-			try{
-				$result = parent::execute($param_pool);
-			}
-			catch(FrontendPageNotFoundException $e){
-				// Work around. This ensures the 404 page is displayed and
-				// is not picked up by the default catch() statement below
-				FrontendPageNotFoundExceptionHandler::render($e);
-			}
-			catch(Exception $e){
-				$result->appendChild(new XMLElement('error', $e->getMessage() . ' on ' . $e->getLine() . ' of file ' . $e->getFile()));
-				return $result;
-			}
+    public function execute(array &$param_pool = null)
+    {
+        $result = new XMLElement($this->dsParamROOTELEMENT);
 
-			if($this->_force_empty_result) $result = $this->emptyXMLSet();
+        try {
+            $result = parent::execute($param_pool);
+        } catch (FrontendPageNotFoundException $e) {
+            // Work around. This ensures the 404 page is displayed and
+            // is not picked up by the default catch() statement below
+            FrontendPageNotFoundExceptionHandler::render($e);
+        } catch (\Exception $e) {
+            $result->appendChild(new XMLElement('error', $e->getMessage() . ' on ' . $e->getLine() . ' of file ' . $e->getFile()));
 
-			return $result;
-		}
+            return $result;
+        }
 
-	}
+        if ($this->_force_empty_result) {
+            $result = $this->emptyXMLSet();
+        }
+
+        return $result;
+    }
+
+}

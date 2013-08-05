@@ -1,278 +1,277 @@
 <?php
 
-	include_once(TOOLKIT . '/class.htmlpage.php');
+use \SymphonyCms\Toolkit\HTMLPage;
 
-	$Page = new HTMLPage();
+$Page = new HTMLPage();
 
-	$Page->Html->setElementStyle('html');
+$Page->Html->setElementStyle('html');
 
-	$Page->Html->setDTD('<!DOCTYPE html>');
-	$Page->Html->setAttribute('xml:lang', 'en');
-	$Page->addElementToHead(new XMLElement('meta', NULL, array('http-equiv' => 'Content-Type', 'content' => 'text/html; charset=UTF-8')), 0);
-	$Page->addStylesheetToHead(APPLICATION_URL . '/assets/css/symphony.css', 'screen', 30);
-	$Page->addStylesheetToHead(APPLICATION_URL . '/assets/css/symphony.frames.css', 'screen', 31);
+$Page->Html->setDTD('<!DOCTYPE html>');
+$Page->Html->setAttribute('xml:lang', 'en');
+$Page->addElementToHead(new XMLElement('meta', null, array('http-equiv' => 'Content-Type', 'content' => 'text/html; charset=UTF-8')), 0);
+$Page->addStylesheetToHead(APP_URL . '/assets/css/symphony.css', 'screen', 30);
+$Page->addStylesheetToHead(APP_URL . '/assets/css/symphony.frames.css', 'screen', 31);
 
-	$Page->setHttpStatus($e->getHttpStatusCode());
-	$Page->addHeaderToPage('Content-Type', 'text/html; charset=UTF-8');
-	$Page->addHeaderToPage('Symphony-Error-Type', 'xslt');
+$Page->setHttpStatus($e->getHttpStatusCode());
+$Page->addHeaderToPage('Content-Type', 'text/html; charset=UTF-8');
+$Page->addHeaderToPage('Symphony-Error-Type', 'xslt');
 
-	$Page->setTitle(__('%1$s &ndash; %2$s', array(__('Symphony'), __('XSLT Processing Error'))));
-	$Page->Body->setAttribute('id', 'fatalerror');
+$Page->setTitle(tr('%1$s &ndash; %2$s', array(tr('Symphony'), tr('XSLT Processing Error'))));
+$Page->Body->setAttribute('id', 'fatalerror');
 
-	$div = new XMLElement('div', NULL, array('class' => 'frame'));
-	$ul = new XMLElement('ul');
-	$li = new XMLElement('li');
-	$li->appendChild(new XMLElement('h1', __('XSLT Processing Error')));
-	$li->appendChild(new XMLElement('p', __('This page could not be rendered due to the following XSLT processing errors:')));
-	$ul->appendChild($li);
+$div = new XMLElement('div', null, array('class' => 'frame'));
+$ul = new XMLElement('ul');
+$li = new XMLElement('li');
+$li->appendChild(new XMLElement('h1', tr('XSLT Processing Error')));
+$li->appendChild(new XMLElement('p', tr('This page could not be rendered due to the following XSLT processing errors:')));
+$ul->appendChild($li);
 
-	$errors_grouped = array();
+$errors_grouped = array();
 
-	list($key, $val) = $e->getAdditional()->proc->getError(false, true);
+list($key, $val) = $e->getAdditional()->proc->getError(false, true);
 
-	do {
-		if(preg_match('/^loadXML\(\)/i', $val['message']) && preg_match_all('/line:\s+(\d+)/i', $val['message'], $matches))
-			$errors_grouped['xml'][] = array('line'=>$matches[1][0], 'raw'=>$val);
+do {
+    if (preg_match('/^loadXML\(\)/i', $val['message']) && preg_match_all('/line:\s+(\d+)/i', $val['message'], $matches)) {
+        $errors_grouped['xml'][] = array('line'=>$matches[1][0], 'raw'=>$val);
+    } elseif (preg_match_all('/pages\/([^.\/]+\.xsl)\s+line\s+(\d+)/i', $val['message'], $matches) || preg_match_all('/pages\/([^.\/]+\.xsl):(\d+):/i', $val['message'], $matches)) {
+        $errors_grouped['page'][$matches[1][0]][] = array('line'=>$matches[2][0], 'raw'=>$val);
+    } elseif (preg_match_all('/utilities\/([^.\/]+\.xsl)\s+line\s+(\d+)/i', $val['message'], $matches)) {
+        $errors_grouped['utility'][$matches[1][0]][] = array('line'=>$matches[2][0], 'raw'=>$val);
+    } else {
+        $val['parts'] = explode(' ', $val['message'], 3);
+        $errors_grouped['general'][] = $val;
+    }
+} while (list($key, $val) = $e->getAdditional()->proc->getError());
 
-		elseif(preg_match_all('/pages\/([^.\/]+\.xsl)\s+line\s+(\d+)/i', $val['message'], $matches) || preg_match_all('/pages\/([^.\/]+\.xsl):(\d+):/i', $val['message'], $matches))
-			$errors_grouped['page'][$matches[1][0]][] = array('line'=>$matches[2][0], 'raw'=>$val);
+$query_string = General::sanitize($Page->buildQueryString());
 
-		elseif(preg_match_all('/utilities\/([^.\/]+\.xsl)\s+line\s+(\d+)/i', $val['message'], $matches))
-			$errors_grouped['utility'][$matches[1][0]][] = array('line'=>$matches[2][0], 'raw'=>$val);
+if (strlen(trim($query_string)) > 0) {
+    $query_string = "&amp;{$query_string}";
+}
 
-		else{
-			$val['parts'] = explode(' ', $val['message'], 3);
-			$errors_grouped['general'][] = $val;
-		}
+foreach ($errors_grouped as $group => $data) {
+    switch ($group) {
+        case 'general':
+            $error = new XMLElement('li', '<header>' . tr('General') . '<a class="button" href="?debug' . $query_string .'" title="' . tr('Show debug view') . '">' . tr('Debug') . '</a></header>');
+            $content = new XMLElement('div', null, array('class' => 'content'));
+            $list = new XMLElement('ul');
+            $file = null;
+            $line = null;
 
-	} while(list($key, $val) = $e->getAdditional()->proc->getError());
+            foreach ($data as $index => $e) {
+                // Highlight error
+                $class = array();
 
-	$query_string = General::sanitize($Page->__buildQueryString());
-	if(strlen(trim($query_string)) > 0) $query_string = "&amp;{$query_string}";
+                if (strpos($data[$index + 1]['message'], '^') !== false) {
+                    $class = array('class' => 'error');
+                }
 
-	foreach($errors_grouped as $group => $data){
+                // Don't show markers
+                if (strpos($e['message'], '^') === false) {
+                    $parts = explode('(): ', $e['message']);
 
-		switch($group){
+                    // Function
+                    preg_match('/(.*)\:(\d+)\:/', $e['parts'][1], $current);
 
-			case 'general':
-				$error = new XMLElement('li', '<header>' . __('General') . '<a class="button" href="?debug' . $query_string .'" title="' . __('Show debug view') . '">' . __('Debug') . '</a></header>');
-				$content = new XMLElement('div', null, array('class' => 'content'));
-				$list = new XMLElement('ul');
-				$file = null;
-				$line = null;
+                    if ($data[$index - 1]['parts'][0] != $e['parts'][0] || (strpos($data[$index - 1]['message'], '^') !== false && $data[$index - 2]['message'] != $data[$index + 1]['message'])) {
+                        $list->appendChild(
+                            new XMLElement(
+                                'li',
+                                '<code><em>' . $e['parts'][0] . ' ' . $current[1] . '</em></code>'
+                            )
+                        );
+                    }
 
-				foreach($data as $index => $e) {
+                    // Store current file and line
+                    if(count($current) > 2) {
+                        $file = $current[1];
+                        $line = $current[2];
+                    }
 
-					// Highlight error
-					$class = array();
-					if(strpos($data[$index + 1]['message'], '^') !== false) {
-						$class = array('class' => 'error');
-					}
+                    // Error
+                    if(!empty($class)) {
+                        if(isset($data[$index + 3]) && !empty($parts[1]) && strpos($data[$index + 3]['message'], $parts[1]) === false) {
+                            $position = explode('(): ', $data[$index + 1]['message']);
+                            $length = max(0, strlen($position[1]) - 1);
+                            $list->appendChild(
+                                new XMLElement(
+                                    'li',
+                                    '<code>&#160;&#160;&#160;&#160;' . str_replace(' ', '&#160;', trim(htmlspecialchars(substr($parts[1], 0, $length))) . '<b>' . htmlspecialchars(substr($parts[1], $length, 1)) . '</b>' . htmlspecialchars(substr($parts[1], $length + 1))) . '</code>',
+                                    $class
+                                )
+                            );
 
-					// Don't show markers
-					if(strpos($e['message'], '^') === false) {
-						$parts = explode('(): ', $e['message']);
+                            if (isset($file, $line)) {
+                                // Show in debug
+                                $filename = explode(WORKSPACE . '/', $file);
+                                $list->appendChild(
+                                    new XMLElement(
+                                        'li',
+                                        '<code>&#160;&#160;&#160;&#160;<a href="?debug=/workspace/' . $filename[1] . '#line-' . $line .'" title="' . tr('Show debug view for %s', array($filename[1])) . '">' . tr('Show line %d in debug view', array($line)) . '</a></code>'
+                                    )
+                                );
+                            }
+                        }
+                    } else {
+                        // Message
+                        $list->appendChild(
+                            new XMLElement(
+                                'li',
+                                '<code>&#160;&#160;&#160;&#160;' . (strpos($e['parts'][1], '/') !== 0 ? $e['parts'][1] . ' ' : '') . str_replace(' ', '&#160;', $e['parts'][2]) . '</code>'
+                            )
+                        );
+                    }
+                }
+            }
 
-						// Function
-						preg_match('/(.*)\:(\d+)\:/', $e['parts'][1], $current);
-						if($data[$index - 1]['parts'][0] != $e['parts'][0] || (strpos($data[$index - 1]['message'], '^') !== false && $data[$index - 2]['message'] != $data[$index + 1]['message'])) {
-							$list->appendChild(
-								new XMLElement(
-									'li',
-									'<code><em>' . $e['parts'][0] . ' ' . $current[1] . '</em></code>'
-								)
-							);
-						}
+            $content->appendChild($list);
+            $error->appendChild($content);
+            $ul->appendChild($error);
+            break;
+        case 'page':
+            foreach ($data as $filename => $errors) {
+                $error = new XMLElement('li', '<header>' . $filename . '<a class="button" href="?debug=/workspace/pages/' .  $filename . $query_string .'" title="' . tr('Show debug view') . '">' . tr('Debug') . '</a></header>');
+                $content = new XMLElement('div', null, array('class' => 'content'));
+                $list = new XMLElement('ul');
 
-						// Store current file and line
-						if(count($current) > 2) {
-							$file = $current[1];
-							$line = $current[2];
-						}
+                foreach ($errors as $e) {
+                    if(!is_array($e)) {
+                        continue;
+                    }
 
-						// Error
-						if(!empty($class)) {
-							if(isset($data[$index + 3]) && !empty($parts[1]) && strpos($data[$index + 3]['message'], $parts[1]) === false) {
-								$position = explode('(): ', $data[$index + 1]['message']);
-								$length = max(0, strlen($position[1]) - 1);
-								$list->appendChild(
-									new XMLElement(
-										'li',
-										'<code>&#160;&#160;&#160;&#160;' . str_replace(' ', '&#160;', trim(htmlspecialchars(substr($parts[1], 0, $length))) . '<b>' . htmlspecialchars(substr($parts[1], $length, 1)) . '</b>' . htmlspecialchars(substr($parts[1], $length + 1))) . '</code>',
-										$class
-									)
-								);
+                    $parts = explode('(): ', $e['raw']['message']);
 
-								if(isset($file, $line)) {
-									// Show in debug
-									$filename = explode(WORKSPACE . '/', $file);
-									$list->appendChild(
-										new XMLElement(
-											'li',
-											'<code>&#160;&#160;&#160;&#160;<a href="?debug=/workspace/' . $filename[1] . '#line-' . $line .'" title="' . __('Show debug view for %s', array($filename[1])) . '">' . __('Show line %d in debug view', array($line)) . '</a></code>'
-										)
-									);
-								}
-							}
-						}
+                    $list->appendChild(
+                        new XMLElement(
+                            'li',
+                            '<code><em>' . $parts[0] . '():</em></code>'
+                        )
+                    );
 
-						// Message
-						else {
-							$list->appendChild(
-								new XMLElement(
-									'li',
-									'<code>&#160;&#160;&#160;&#160;' . (strpos($e['parts'][1], '/') !== 0 ? $e['parts'][1] . ' ' : '') . str_replace(' ', '&#160;', $e['parts'][2]) . '</code>'
-								)
-							);
-						}
-					}
-				}
+                    $list->appendChild(
+                        new XMLElement(
+                            'li',
+                            '<code>&#160;&#160;&#160;&#160;' . $parts[1] . '</code>'
+                        )
+                    );
 
-				$content->appendChild($list);
-				$error->appendChild($content);
-				$ul->appendChild($error);
+                    $list->appendChild(
+                        new XMLElement(
+                            'li',
+                            '<code>&#160;&#160;&#160;&#160;<a href="?debug=/workspace/pages/' .  $filename . $query_string . '#line-' . $e['line'] .'" title="'
+                        . tr('Show debug view for %s', array($filename)) . '">' . tr('Show line %d in debug view', array($e['line'])) . '</a></code>'
+                        )
+                    );
+                }
 
-				break;
+                $content->appendChild($list);
+                $error->appendChild($content);
+                $ul->appendChild($error);
+            }
+            break;
+        case 'utility':
+            foreach ($data as $filename => $errors) {
+                $error = new XMLElement('li', '<header>' . $filename . '<a class="button" href="?debug=/workspace/utilities/' .  $filename . $query_string .'" title="' . tr('Show debug view') . '">' . tr('Debug') . '</a></header>');
+                $content = new XMLElement('div', null, array('class' => 'content'));
+                $list = new XMLElement('ul');
 
+                foreach ($errors as $e) {
+                    if (!is_array($e)) {
+                        continue;
+                    }
 
-			case 'page':
-				foreach($data as $filename => $errors){
-					$error = new XMLElement('li', '<header>' . $filename . '<a class="button" href="?debug=/workspace/pages/' .  $filename . $query_string .'" title="' . __('Show debug view') . '">' . __('Debug') . '</a></header>');
-					$content = new XMLElement('div', null, array('class' => 'content'));
-					$list = new XMLElement('ul');
+                    $parts = explode('(): ', $e['raw']['message']);
 
-					foreach($errors as $e){
-						if(!is_array($e)) continue;
+                    $list->appendChild(
+                        new XMLElement(
+                            'li',
+                            '<code><em>' . $parts[0] . '():</em></code>'
+                        )
+                    );
 
-						$parts = explode('(): ', $e['raw']['message']);
+                    $list->appendChild(
+                        new XMLElement(
+                            'li',
+                            '<code>&#160;&#160;&#160;&#160;' . $parts[1] . '</code>'
+                        )
+                    );
 
-						$list->appendChild(
-							new XMLElement(
-								'li',
-								'<code><em>' . $parts[0] . '():</em></code>'
-							)
-						);
-						$list->appendChild(
-							new XMLElement(
-								'li',
-								'<code>&#160;&#160;&#160;&#160;' . $parts[1] . '</code>'
-							)
-						);
-						$list->appendChild(
-							new XMLElement(
-								'li',
-								'<code>&#160;&#160;&#160;&#160;<a href="?debug=/workspace/pages/' .  $filename . $query_string . '#line-' . $e['line'] .'" title="'
-							. __('Show debug view for %s', array($filename)) . '">' . __('Show line %d in debug view', array($e['line'])) . '</a></code>'
-							)
-						);
-					}
+                    $list->appendChild(
+                        new XMLElement(
+                            'li',
+                            '<code>&#160;&#160;&#160;&#160;<a href="?debug=/workspace/utilities/' .  $filename . $query_string . '#line-' . $e['line'] .'" title="'
+                        . tr('Show debug view for %s', array($filename)) . '">' . tr('Show line %d in debug view', array($e['line'])) . '</a></code>'
+                        )
+                    );
+                }
 
-					$content->appendChild($list);
-					$error->appendChild($content);
-					$ul->appendChild($error);
-				}
+                $content->appendChild($list);
+                $error->appendChild($content);
+                $ul->appendChild($error);
+            }
+            break;
+        case 'xml':
+            foreach ($data as $filename => $errors) {
+                $error = new XMLElement('li', '<header>XML <a class="button" href="?debug=xml' . $query_string .'" title="' . tr('Show debug view') . '">' . tr('Debug') . '</a></header>');
+                $content = new XMLElement('div', null, array('class' => 'content'));
+                $list = new XMLElement('ul');
 
-				break;
+                foreach ($errors as $e) {
+                    if (!is_array($e)) {
+                        continue;
+                    }
 
-			case 'utility':
-				foreach($data as $filename => $errors){
-					$error = new XMLElement('li', '<header>' . $filename . '<a class="button" href="?debug=/workspace/utilities/' .  $filename . $query_string .'" title="' . __('Show debug view') . '">' . __('Debug') . '</a></header>');
-					$content = new XMLElement('div', null, array('class' => 'content'));
-					$list = new XMLElement('ul');
+                    $parts = explode('(): ', $e['message']);
 
-					foreach($errors as $e){
-						if(!is_array($e)) continue;
+                    $list->appendChild(
+                        new XMLElement(
+                            'li',
+                            '<code><em>' . $parts[0] . '():</em></code>'
+                        )
+                    );
 
-						$parts = explode('(): ', $e['raw']['message']);
+                    $list->appendChild(
+                        new XMLElement(
+                            'li',
+                            '<code>&#160;&#160;&#160;&#160;' . $parts[1] . '</code>'
+                        )
+                    );
 
-						$list->appendChild(
-							new XMLElement(
-								'li',
-								'<code><em>' . $parts[0] . '():</em></code>'
-							)
-						);
-						$list->appendChild(
-							new XMLElement(
-								'li',
-								'<code>&#160;&#160;&#160;&#160;' . $parts[1] . '</code>'
-							)
-						);
-						$list->appendChild(
-							new XMLElement(
-								'li',
-								'<code>&#160;&#160;&#160;&#160;<a href="?debug=/workspace/utilities/' .  $filename . $query_string . '#line-' . $e['line'] .'" title="'
-							. __('Show debug view for %s', array($filename)) . '">' . __('Show line %d in debug view', array($e['line'])) . '</a></code>'
-							)
-						);
-					}
+                    if (strpos($e['file'], WORKSPACE) !== false) {
+                        // The line in the exception is where it was thrown, it's
+                        // useless for the ?debug view. This gets the line from
+                        // the ?debug page.
+                        preg_match('/:\s(\d+)$/', $parts[1], $line);
 
-					$content->appendChild($list);
-					$error->appendChild($content);
-					$ul->appendChild($error);
-				}
+                        $list->appendChild(
+                            new XMLElement(
+                                'li',
+                                '<code>&#160;&#160;&#160;&#160;<a href="?debug=xml' . $query_string . '#line-' . $line[1] .'" title="'
+                            . tr('Show debug view for %s', array($filename)) . '">' . tr('Show line %d in debug view', array($line[1])) . '</a></code>'
+                            )
+                        );
+                    } else {
+                        $list->appendChild(
+                            new XMLElement(
+                                'li',
+                                '<code>&#160;&#160;&#160;&#160;' . $e['file'] . ':' . $e['line']. '</code>'
+                            )
+                        );
+                    }
+                }
 
-				break;
+                $content->appendChild($list);
+                $error->appendChild($content);
+                $ul->appendChild($error);
+            }
 
-			case 'xml':
-				foreach($data as $filename => $errors){
-					$error = new XMLElement('li', '<header>XML <a class="button" href="?debug=xml' . $query_string .'" title="' . __('Show debug view') . '">' . __('Debug') . '</a></header>');
-					$content = new XMLElement('div', null, array('class' => 'content'));
-					$list = new XMLElement('ul');
+            break;
+    }
+}
 
-					foreach($errors as $e){
-						if(!is_array($e)) continue;
+$div->appendChild($ul);
+$Page->Body->appendChild($div);
 
-						$parts = explode('(): ', $e['message']);
+print $Page->generate();
 
-						$list->appendChild(
-							new XMLElement(
-								'li',
-								'<code><em>' . $parts[0] . '():</em></code>'
-							)
-						);
-						$list->appendChild(
-							new XMLElement(
-								'li',
-								'<code>&#160;&#160;&#160;&#160;' . $parts[1] . '</code>'
-							)
-						);
-
-						if(strpos($e['file'], WORKSPACE) !== false) {
-							// The line in the exception is where it was thrown, it's
-							// useless for the ?debug view. This gets the line from
-							// the ?debug page.
-							preg_match('/:\s(\d+)$/', $parts[1], $line);
-
-							$list->appendChild(
-								new XMLElement(
-									'li',
-									'<code>&#160;&#160;&#160;&#160;<a href="?debug=xml' . $query_string . '#line-' . $line[1] .'" title="'
-								. __('Show debug view for %s', array($filename)) . '">' . __('Show line %d in debug view', array($line[1])) . '</a></code>'
-								)
-							);
-						}
-						else {
-							$list->appendChild(
-								new XMLElement(
-									'li',
-									'<code>&#160;&#160;&#160;&#160;' . $e['file'] . ':' . $e['line']. '</code>'
-								)
-							);
-						}
-					}
-
-					$content->appendChild($list);
-					$error->appendChild($content);
-					$ul->appendChild($error);
-				}
-
-				break;
-		}
-	}
-
-	$div->appendChild($ul);
-	$Page->Body->appendChild($div);
-
-	print $Page->generate();
-
-	exit;
+exit;
