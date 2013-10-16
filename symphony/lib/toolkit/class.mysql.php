@@ -423,6 +423,8 @@
 		 * Takes an SQL string and executes it. This function will apply query
 		 * caching if it is a read operation and if query caching is set. Symphony
 		 * will convert the `tbl_` prefix of tables to be the one set during installation.
+		 * To automatically sanitize variables being used the query has to be sprintf-formatted
+		 * and all variables passed on separately using the second parameter.
 		 * A type parameter is provided to specify whether `$this->_lastResult` will be an array
 		 * of objects or an array of associative arrays. The default is objects. This
 		 * function will return boolean, but set `$this->_lastResult` to the result.
@@ -430,6 +432,11 @@
 		 * @uses PostQueryExecution
 		 * @param string $query
 		 *  The full SQL query to execute.
+		 * @param array $params
+		 *  An array containing parameters to be used in the query. The query has to be
+		 *  sprintf-formatted. All values will be sanitized before being used in the query.
+		 *  For sake of backwards-compatibility, the query will only be sprintf-processed
+		 *  if $params is not empty.
 		 * @param string $type
 		 *  Whether to return the result as objects or associative array. Defaults
 		 *  to OBJECT which will return objects. The other option is ASSOC. If $type
@@ -437,9 +444,18 @@
 		 * @return boolean
 		 *  True if the query executed without errors, false otherwise
 		 */
-		public function query($query, $type = "OBJECT"){
+		public function query($query, $params = array(), $type = "OBJECT"){
+			if($params == "ASSOC" || $params == "OBJECT") {
+				$type = $params;
+				$params = array();
+			}
 
 			if(empty($query)) return false;
+			
+			if(!empty($params)) {
+				self::cleanFields($params);
+				$query = vsprintf($query, $params);
+			}
 
 			$start = precision_timer();
 			$query = trim($query);
@@ -658,6 +674,11 @@
 		 * @param string $query
 		 *  The full SQL query to execute. Defaults to null, which will
 		 *  use the _lastResult
+		 * @param array $params
+		 *  An array containing parameters to be used in the query. The query has to be
+		 *  sprintf-formatted. All values will be sanitized before being used in the query.
+		 *  For sake of backwards-compatibility, the query will only be sprintf-processed
+		 *  if $params is not empty.
 		 * @param string $index_by_column
 		 *  The name of a column in the table to use it's value to index
 		 *  the result by. If this is omitted (and it is by default), an
@@ -666,9 +687,9 @@
 		 * @return array
 		 *  An associative array with the column names as the keys
 		 */
-		public function fetch($query = null, $index_by_column = null){
+		public function fetch($query = null, $params = array(), $index_by_column = null){
 			if(!is_null($query)) {
-				$this->query($query, "ASSOC");
+				$this->query($query, $params, "ASSOC");
 			}
 			else if(is_null($this->_lastResult)) {
 				return array();
@@ -703,12 +724,17 @@
 		 * @param string $query
 		 *  The full SQL query to execute. Defaults to null, which will
 		 *  use the `$this->_lastResult`
+		 * @param array $params
+		 *  An array containing parameters to be used in the query. The query has to be
+		 *  sprintf-formatted. All values will be sanitized before being used in the query.
+		 *  For sake of backwards-compatibility, the query will only be sprintf-processed
+		 *  if $params is not empty.
 		 * @return array
 		 *  If there is no row at the specified `$offset`, an empty array will be returned
 		 *  otherwise an associative array of that row will be returned.
 		 */
-		public function fetchRow($offset = 0, $query = null){
-			$result = $this->fetch($query);
+		public function fetchRow($offset = 0, $query = null, $params = array()){
+			$result = $this->fetch($query, $params);
 			return (empty($result) ? array() : $result[$offset]);
 		}
 
@@ -721,12 +747,17 @@
 		 * @param string $query
 		 *  The full SQL query to execute. Defaults to null, which will
 		 *  use the `$this->_lastResult`
+		 * @param array $params
+		 *  An array containing parameters to be used in the query. The query has to be
+		 *  sprintf-formatted. All values will be sanitized before being used in the query.
+		 *  For sake of backwards-compatibility, the query will only be sprintf-processed
+		 *  if $params is not empty.
 		 * @return array
 		 *  If there is no results for the `$query`, an empty array will be returned
 		 *  otherwise an array of values for that given `$column` will be returned
 		 */
-		public function fetchCol($column, $query = null){
-			$result = $this->fetch($query);
+		public function fetchCol($column, $query = null, $params = array()){
+			$result = $this->fetch($query, $params);
 
 			if(empty($result)) return array();
 
@@ -751,12 +782,18 @@
 		 * @param string $query
 		 *  The full SQL query to execute. Defaults to null, which will
 		 *  use the `$this->_lastResult`
-		 * @return string|null
+		 * @param array $params
+		 *  An array containing parameters to be used in the query. The query has to be
+		 *  sprintf-formatted. All values will be sanitized before being used in the query.
+		 *  For sake of backwards-compatibility, the query will only be sprintf-processed
+		 *  if $params is not empty.
+		 * @return string
 		 *  Returns the value of the given column, if it doesn't exist, null will be
 		 *  returned
 		 */
-		public function fetchVar($column, $offset = 0, $query = null){
-			$result = $this->fetch($query);
+		public function fetchVar ($column, $offset = 0, $query = null, $params = array()){
+			$result = $this->fetch($query, $params);
+
 			return (empty($result) ? null : $result[$offset][$column]);
 		}
 
