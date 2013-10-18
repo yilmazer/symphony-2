@@ -107,17 +107,79 @@
 			return (preg_match('/^(set|create|insert|replace|alter|delete|update|optimize|truncate|drop)/i', $query) ? MySQL::__WRITE_OPERATION__ : MySQL::__READ_OPERATION__);
 		}
 
-		public function query($query, $type = "OBJECT", $params = array()) {
-			if(empty($query)) return false;
-
-			$start = precision_timer();
-			$query = trim($query);
-			$query_type = $this->determineQueryType($query);
-			$query_hash = md5($query.$start);
-
+		/**
+		 * Given a string, replace the default table prefixes with the
+		 * table prefix for this database instance.
+		 *
+		 * @param string $query
+		 * @return string
+		 */
+		public function replaceTablePrefix($query) {
 			if($this->_prefix != 'tbl_'){
 				$query = preg_replace('/tbl_(\S+?)([\s\.,]|$)/', $this->_prefix .'\\1\\2', $query);
 			}
+
+			return $query;
+		}
+
+		public function insert($query, array $values) {
+			if(empty($query)) return false;
+
+			// Default query preparation
+			$start = precision_timer();
+			$query = $this->replaceTablePrefix(trim($query));
+			$query_hash = md5($query.$start);
+
+			// Cleanup from last time, set some logging parameters
+			$this->flush();
+			$this->_lastQuery = $query;
+			$this->_lastQueryHash = $query_hash;
+
+			// Execute
+			try {
+				$this->_result = $this->conn->prepare($query);
+				$result = $this->_result->execute($values);
+				$this->_query_count++;
+			}
+			catch (PDOException $ex) {
+				$this->error($ex);
+			}
+
+			if($this->conn->errorCode() !== PDO::ERR_NONE){
+				$this->error();
+
+				return false;
+			}
+			else if($this->_result instanceof PDOStatement) {
+				$this->_lastQuery = $this->_result->queryString;
+
+				$this->_result->closeCursor();
+			}
+
+			$this->logQuery($query, $query_hash, precision_timer('stop', $start));
+
+			return true;
+		}
+
+		/**
+		 * Returns the last insert ID from the previous query. This is
+		 * the value from an auto_increment field.
+		 *
+		 * @return integer
+		 *  The last interested row's ID
+		 */
+		public function getInsertID(){
+			return $this->conn->lastInsertId();
+		}
+
+		public function query($query, $type = "OBJECT", $params = array()) {
+			if(empty($query)) return false;
+
+			// Default query preparation
+			$start = precision_timer();
+			$query = $this->replaceTablePrefix(trim($query));
+			$query_type = $this->determineQueryType($query);
+			$query_hash = md5($query.$start);
 
 			// TYPE is deprecated since MySQL 4.0.18, ENGINE is preferred
 			if($query_type == MySQL::__WRITE_OPERATION__) {
@@ -132,6 +194,7 @@
 				}
 			}
 
+			// Cleanup from last time, set some logging parameters
 			$this->flush();
 			$this->_lastQuery = $query;
 			$this->_lastQueryHash = $query_hash;
@@ -145,7 +208,7 @@
 				$this->error($ex);
 			}
 
-			if($this->conn->errorCode() != '00000'){
+			if($this->conn->errorCode() !== PDO::ERR_NONE){
 				$this->error();
 			}
 			else if($this->_result instanceof PDOStatement && $query_type == MySQL::__READ_OPERATION__) {
@@ -169,9 +232,81 @@
 					}
 				}
 			}
-			$this->_result->closeCursor();
-			$stop = precision_timer('stop', $start);
 
+			$this->_result->closeCursor();
+			$this->logQuery($query, $query_hash, precision_timer('stop', $start));
+
+			return true;
+		}
+
+		public function fetch($query = null, $index_by_column = null, $params = array()){
+			if(!is_null($query)) {
+				$this->query($query, 'ASSOC', $params);
+			}
+			else if(is_null($this->_lastResult) || $this->_lastResult === false) {
+				return array();
+			}
+
+			$result = $this->_lastResult;
+
+			if(!is_null($index_by_column) && isset($result[0][$index_by_column])){
+				$n = array();
+
+				foreach($result as $ii) {
+					$n[$ii[$index_by_column]] = $ii;
+				}
+
+				$result = $n;
+			}
+
+			return $result;
+		}
+
+		private function error(Exception $ex = null) {
+			if(isset($ex)) {
+				$msg = $ex->getMessage();
+				$errornum = $ex->getCode();
+			}
+			else {
+				$error = $this->conn->errorInfo();
+				$msg = $error[2];
+				$errornum = $error[0];
+			}
+
+			/**
+			 * After a query execution has failed this delegate will provide the query,
+			 * query hash, error message and the error number.
+			 *
+			 * Note that this function only starts logging once the `ExtensionManager`
+			 * is available, which means it will not fire for the first couple of
+			 * queries that set the character set.
+			 *
+			 * @since Symphony 2.3
+			 * @delegate QueryExecutionError
+			 * @param string $context
+			 * '/frontend/' or '/backend/'
+			 * @param string $query
+			 *  The query that has just been executed
+			 * @param string $query_hash
+			 *  The hash used by Symphony to uniquely identify this query
+			 * @param string $msg
+			 *  The error message provided by MySQL which includes information on why the execution failed
+			 * @param integer $num
+			 *  The error number that corresponds with the MySQL error message
+			 */
+			if(Symphony::ExtensionManager() instanceof ExtensionManager) {
+				Symphony::ExtensionManager()->notifyMembers('QueryExecutionError', class_exists('Administration') ? '/backend/' : '/frontend/', array(
+					'query' => $this->_lastQuery,
+					'query_hash' => $this->_lastQueryHash,
+					'msg' => $msg,
+					'num' => $errornum
+				));
+			}
+
+			throw $ex;
+		}
+
+		private function logQuery($query, $query_hash, $stop) {
 			/**
 			 * After a query has successfully executed, that is it was considered
 			 * valid SQL, this delegate will provide the query, the query_hash and
@@ -218,79 +353,6 @@
 					'execution_time' => $stop
 				);
 			}
-
-			return true;
-		}
-
-		/**
-		 * Returns the last insert ID from the previous query. This is
-		 * the value from an auto_increment field.
-		 *
-		 * @return integer
-		 *  The last interested row's ID
-		 */
-		public function getInsertID(){
-			return $this->conn->lastInsertId();
-		}
-
-		public function fetch($query = null, $index_by_column = null, $params = array()){
-			if(!is_null($query)) {
-				$this->query($query, 'ASSOC', $params);
-			}
-			else if(is_null($this->_lastResult) || $this->_lastResult === false) {
-				return array();
-			}
-
-			$result = $this->_lastResult;
-
-			if(!is_null($index_by_column) && isset($result[0][$index_by_column])){
-				$n = array();
-
-				foreach($result as $ii) {
-					$n[$ii[$index_by_column]] = $ii;
-				}
-
-				$result = $n;
-			}
-
-			return $result;
-		}
-
-		private function error(Exception $ex) {
-			$msg = $ex->getMessage();
-			$errornum = $ex->getCode();
-
-			/**
-			 * After a query execution has failed this delegate will provide the query,
-			 * query hash, error message and the error number.
-			 *
-			 * Note that this function only starts logging once the `ExtensionManager`
-			 * is available, which means it will not fire for the first couple of
-			 * queries that set the character set.
-			 *
-			 * @since Symphony 2.3
-			 * @delegate QueryExecutionError
-			 * @param string $context
-			 * '/frontend/' or '/backend/'
-			 * @param string $query
-			 *  The query that has just been executed
-			 * @param string $query_hash
-			 *  The hash used by Symphony to uniquely identify this query
-			 * @param string $msg
-			 *  The error message provided by MySQL which includes information on why the execution failed
-			 * @param integer $num
-			 *  The error number that corresponds with the MySQL error message
-			 */
-			if(Symphony::ExtensionManager() instanceof ExtensionManager) {
-				Symphony::ExtensionManager()->notifyMembers('QueryExecutionError', class_exists('Administration') ? '/backend/' : '/frontend/', array(
-					'query' => $this->_lastQuery,
-					'query_hash' => $this->_lastQueryHash,
-					'msg' => $msg,
-					'num' => $errornum
-				));
-			}
-
-			throw $ex;
 		}
 
 

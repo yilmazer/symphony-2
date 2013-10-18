@@ -120,6 +120,7 @@
 		 *  The table prefix for Symphony, by default this is sym_
 		 */
 		public function setPrefix($prefix){
+			$this->_prefix = $prefix;
 			MySQL::$_conn_pdo->setPrefix($prefix);
 		}
 
@@ -160,10 +161,10 @@
 		 * database queries and don't want anything abstract by the MySQL
 		 * class.
 		 *
-		 * @return resource
+		 * @return PDO
 		 */
 		public static function getConnectionResource() {
-			return MySQL::$_connection['id'];
+			return MySQL::$_conn_pdo->conn;
 		}
 
 		/**
@@ -177,14 +178,6 @@
 		 * @return boolean
 		 */
 		public function select($db=NULL){
-			if ($db) MySQL::$_connection['database'] = $db;
-
-			if (!mysql_select_db(MySQL::$_connection['database'], MySQL::$_connection['id'])) {
-				$this->__error();
-				MySQL::$_connection['database'] = null;
-				return false;
-			}
-
 			return true;
 		}
 
@@ -306,7 +299,7 @@
 		public function query($query, $type = "OBJECT"){
 			if(empty($query)) return false;
 
-			$result = MySQL::$_conn_pdo->query($query);
+			$result = MySQL::$_conn_pdo->query($query, $type);
 
 			return true;
 		}
@@ -343,36 +336,45 @@
 		 * @return boolean
 		 */
 		public function insert(array $fields, $table, $updateOnDuplicate=false){
-
 			// Multiple Insert
-			if(is_array(current($fields))){
+			if(is_array(current($fields))) {
+				$rows = array();
+				$values = array();
 				$sql  = "INSERT INTO `$table` (`".implode('`, `', array_keys(current($fields))).'`) VALUES ';
 
 				foreach($fields as $key => $array){
 					// Sanity check: Make sure we dont end up with ',()' in the SQL.
 					if(!is_array($array)) continue;
 
-					self::cleanFields($array);
-					$rows[] = '('.implode(', ', $array).')';
-				}
+					$rows[] = "(" . trim(str_repeat('?,', count($array)), ',') . ")";
 
+					// Increase our data pool
+					$values = array_merge($values, array_values($array));
+				}
 				$sql .= implode(", ", $rows);
 			}
-			// Single Insert
-			else{
-				self::cleanFields($fields);
-				$sql  = "INSERT INTO `$table` (`".implode('`, `', array_keys($fields)).'`) VALUES ('.implode(', ', $fields).')';
 
+			// Single Insert
+			else {
+				$values = $fields;
+				$sql  = "INSERT INTO `$table` (`".implode('`, `', array_keys($fields)).'`) VALUES ';
+				$sql .= "(" . trim(str_repeat('?,', count($fields)),',') . ")";
+
+				// Update duplicate keys
 				if($updateOnDuplicate){
 					$sql .= ' ON DUPLICATE KEY UPDATE ';
 
-					foreach($fields as $key => $value) $sql .= " `$key` = $value,";
+					foreach($fields as $key => $value) {
+						$sql .= " `$key` = ?,";
+					}
 
 					$sql = trim($sql, ',');
+					// Double our data pool
+					$values = array_merge(array_values($values), array_values($values));
 				}
 			}
 
-			return $this->query($sql);
+			return MySQL::$_conn_pdo->insert($sql, array_values($values));
 		}
 
 		/**
