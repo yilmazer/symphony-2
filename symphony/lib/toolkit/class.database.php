@@ -1,9 +1,9 @@
 <?php
 
 	Class Database {
-		
+
 		public $conn = null;
-		
+
 		/**
 		 * Sets the current `$_log` to be an empty array
 		 *
@@ -25,9 +25,9 @@
 		 * @var boolean
 		 */
 		private $_cache = true;
-		
+
 		private $_prefix = 'sym_';
-		
+
 		/**
 		 * Sets query caching to true, this will prepend all READ_OPERATION
 		 * queries with SQL_CACHE. Symphony be default enables caching. It
@@ -56,7 +56,7 @@
 		public function isCachingEnabled(){
 			return $this->_cache;
 		}
-		
+
 		/**
 		 * Returns the number of queries that has been executed
 		 *
@@ -65,7 +65,7 @@
 		public function queryCount(){
 			return $this->_query_count;
 		}
-		
+
 		/**
 		 * Symphony uses a prefix for all it's database tables so it can live peacefully
 		 * on the same database as other applications. By default this is sym_, but it
@@ -77,36 +77,36 @@
 		public function setPrefix($prefix){
 			$this->_prefix = $prefix;
 		}
-		
+
 		public function flush(){
 			$this->_result = null;
 			$this->_lastResult = array();
 			$this->_lastQuery = null;
 			$this->_lastQueryHash = null;
 		}
-		
+
 		public function __construct($dsn = null, $username = null, $password = null, array $options = array()) {
 			return $this->connect($dsn, $username, $password, $options);
 		}
-	
+
 		public function connect($dsn = null, $username = null, $password = null, array $options = array()) {
 			try {
 				$this->conn = new PDO($dsn, $username, $password, $options);
 			}
 			catch (PDOException $ex) {
 				$this->error($ex);
-				
+
 				return false;
 			}
-			
+
 			return true;
 		}
-		
+
 		public function determineQueryType($query){
 			return (preg_match('/^(create|insert|replace|alter|delete|update|optimize|truncate|drop)/i', $query) ? MySQL::__WRITE_OPERATION__ : MySQL::__READ_OPERATION__);
 		}
-		
-		public function query($query, $type = "OBJECT"){
+
+		public function query($query, $type = "OBJECT", $params = array()) {
 			if(empty($query)) return false;
 
 			$start = precision_timer();
@@ -136,8 +136,8 @@
 			$this->_lastQueryHash = $query_hash;
 
 			try {
-				$this->_result = $this->conn->query($query);
-				$this->_lastInsertID = $this->conn->lastInsertId();
+				$this->_result = $this->conn->prepare($query);
+				$this->_result->execute();
 				$this->_query_count++;
 			}
 			catch (PDOException $ex) {
@@ -151,16 +151,23 @@
 				$this->_lastQuery = $this->_result->queryString;
 
 				if($type == "ASSOC") {
-					while ($row = $this->_result->fetchAll(PDO::FETCH_BOTH)) {
-						$this->_lastResult = $row;
+					if(isset($params['offset'])) {
+						while ($row = $this->_result->fetch(PDO::FETCH_ASSOC, PDO::FETCH_ORI_ABS, $params['offset'])) {
+							$this->_lastResult = $row;
+						}
+					}
+					else {
+						while ($row = $this->_result->fetch(PDO::FETCH_ASSOC)) {
+							$this->_lastResult[] = $row;
+						}
 					}
 				}
 				else {
 					while ($row = $this->_result->fetchObject()) {
-						$this->_lastResult = $row;
+						$this->_lastResult[] = $row;
 					}
 				}
-				
+
 				$this->_result->closeCursor();
 			}
 
@@ -215,7 +222,7 @@
 
 			return true;
 		}
-		
+
 		/**
 		 * Returns the last insert ID from the previous query. This is
 		 * the value from an auto_increment field.
@@ -224,12 +231,12 @@
 		 *  The last interested row's ID
 		 */
 		public function getInsertID(){
-			return $this->_lastInsertID;
+			return $this->conn->lastInsertId();
 		}
 
-		public function fetch($query = null, $index_by_column = null){
+		public function fetch($query = null, $index_by_column = null, $params = array()){
 			if(!is_null($query)) {
-				$this->query($query, "ASSOC");
+				$this->query($query, 'ASSOC', $params);
 			}
 			else if(is_null($this->_lastResult) || $this->_lastResult === false) {
 				return array();
@@ -241,7 +248,7 @@
 				$n = array();
 
 				foreach($result as $ii) {
-				  $n[$ii[$index_by_column]] = $ii;
+					$n[$ii[$index_by_column]] = $ii;
 				}
 
 				$result = $n;
@@ -286,6 +293,6 @@
 
 			throw $ex;
 		}
-		
-		
+
+
 	}

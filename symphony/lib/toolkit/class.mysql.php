@@ -444,11 +444,16 @@
 		 *  the result by. If this is omitted (and it is by default), an
 		 *  array of associative arrays is returned, with the key being the
 		 *  column names
+		 * @param array $params
+		 *  An array containing parameters to be used in the query. The query has to be
+		 *  sprintf-formatted. All values will be sanitized before being used in the query.
+		 *  For sake of backwards-compatibility, the query will only be sprintf-processed
+		 *  if $params is not empty.
 		 * @return array
 		 *  An associative array with the column names as the keys
 		 */
-		public function fetch($query = null, $index_by_column = null){
-			return MySQL::$_conn_pdo->fetch($query, $index_by_column);
+		public function fetch($query = null, $index_by_column = null, $params = array()){
+			return MySQL::$_conn_pdo->fetch($query, $index_by_column, $params);
 		}
 
 		/**
@@ -475,8 +480,11 @@
 		 *  otherwise an associative array of that row will be returned.
 		 */
 		public function fetchRow($offset = 0, $query = null, $params = array()){
-			$result = $this->fetch($query);
-			return (empty($result) ? array() : $result[$offset]);
+			$result = $this->fetch($query, null, array(
+				'offset' => $offset
+			));
+
+			return $result;
 		}
 
 		/**
@@ -533,9 +541,9 @@
 		 *  returned
 		 */
 		public function fetchVar($column, $offset = 0, $query = null){
-			$result = $this->fetch($query);
+			$result = $this->fetchRow($offset, $query);
 
-			return (empty($result) ? null : $result[$offset][$column]);
+			return (empty($result) ? null : $result[$column]);
 		}
 
 		/**
