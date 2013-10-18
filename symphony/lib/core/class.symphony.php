@@ -336,7 +336,6 @@
 				if(!self::Database()->isConnected()) return false;
 
 				self::Database()->setPrefix($details['tbl_prefix']);
-				self::Database()->setCharacterEncoding();
 				self::Database()->setCharacterSet();
 
 				// Set Timezone, need to convert human readable, ie. Australia/Brisbane to be +10:00
