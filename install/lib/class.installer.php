@@ -419,7 +419,6 @@
 
 			// MySQL: Setting prefix & character encoding
 			Symphony::Database()->setPrefix($fields['database']['tbl_prefix']);
-			Symphony::Database()->setCharacterSet();
 
 			// MySQL: Importing schema
 			Symphony::Log()->pushToLog('MYSQL: Importing Table Schema', E_NOTICE, true, true);

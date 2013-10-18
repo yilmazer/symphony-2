@@ -148,7 +148,7 @@
 			}
 			// Otherwise create a PDO object from parameters
 			else {
-				$this->connect(sprintf('%s:dbname=%s;host=%s;port=%d', $config['driver'], $config['db'], $config['host'], $config['port']),
+				$this->connect(sprintf('%s:dbname=%s;host=%s;port=%d;charset=%s', $config['driver'], $config['db'], $config['host'], $config['port'], $config['charset']),
 					$config['user'],
 					$config['password'],
 					$config['options']
@@ -173,6 +173,7 @@
 		 * Creates a PDO connection to the desired database given the parameters.
 		 * This will also set the error mode to be exceptions (handled by this class)
 		 *
+		 * @link http://www.php.net/manual/en/pdo.drivers.php
 		 * @param string $dsn
 		 * @param string $username
 		 * @param string $password

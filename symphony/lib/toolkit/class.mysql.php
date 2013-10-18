@@ -1,7 +1,7 @@
 <?php
-	
+
 	require_once(TOOLKIT . '/class.database.php');
-	
+
 	/**
 	 * @package toolkit
 	 */
@@ -96,6 +96,7 @@
 		 * @return boolean
 		 */
 		public function connect($host = null, $user = null, $password = null, $port ='3306', $database = null){
+			$options = array();
 			$config = array(
 				'driver' => 'mysql',
 				'db' => $database,
@@ -103,10 +104,14 @@
 				'port' => $port,
 				'user' => $user,
 				'password' => $password,
-				'options' => array(
-					PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES 'utf8'"
-				)
+				'charset' => 'utf8'
 			);
+
+			if(PHP_VERSION_ID <= 50306 && $config['driver'] == 'mysql') {
+				$options[PDO::MYSQL_ATTR_INIT_COMMAND] = "SET NAMES '" . $config['charset'] . "'";
+			}
+
+			$config['options'] = $options;
 
 			MySQL::$_conn_pdo = new Database($config);
 
@@ -123,19 +128,6 @@
 		 */
 		public static function getConnectionResource() {
 			return MySQL::$_conn_pdo->conn;
-		}
-
-		/**
-		 * This function will set the character encoding of the database so that any
-		 * new tables that are created by Symphony use this character encoding
-		 *
-		 * @link http://dev.mysql.com/doc/refman/5.0/en/charset-connection.html
-		 * @param string $set
-		 *  The character encoding to use, by default this 'utf8'
-		 */
-		public function setCharacterSet($set='utf8'){
-			$this->query("SET character_set_connection = '$set', character_set_database = '$set', character_set_server = '$set'");
-			$this->query("SET CHARACTER SET '$set'");
 		}
 
 		/**
@@ -348,11 +340,11 @@
 		 */
 		public function delete($table, $where = null){
 			$sql = "DELETE FROM $table";
-			
+
 			if (!is_null($where)) {
 				$sql .= " WHERE $where";
 			}
-			
+
 			return $this->query($sql);
 		}
 
@@ -381,7 +373,7 @@
 			if(!is_null($index_by_column)) {
 				$params['index'] = $index_by_column;
 			}
-			
+
 			return MySQL::$_conn_pdo->fetch($query, $params);
 		}
 
