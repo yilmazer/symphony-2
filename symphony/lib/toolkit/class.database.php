@@ -92,6 +92,7 @@
 		public function connect($dsn = null, $username = null, $password = null, array $options = array()) {
 			try {
 				$this->conn = new PDO($dsn, $username, $password, $options);
+				$this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 			}
 			catch (PDOException $ex) {
 				$this->error($ex);
@@ -103,7 +104,7 @@
 		}
 
 		public function determineQueryType($query){
-			return (preg_match('/^(create|insert|replace|alter|delete|update|optimize|truncate|drop)/i', $query) ? MySQL::__WRITE_OPERATION__ : MySQL::__READ_OPERATION__);
+			return (preg_match('/^(set|create|insert|replace|alter|delete|update|optimize|truncate|drop)/i', $query) ? MySQL::__WRITE_OPERATION__ : MySQL::__READ_OPERATION__);
 		}
 
 		public function query($query, $type = "OBJECT", $params = array()) {
@@ -147,7 +148,7 @@
 			if($this->conn->errorCode() != '00000'){
 				$this->error();
 			}
-			else if($this->_result instanceof PDOStatement) {
+			else if($this->_result instanceof PDOStatement && $query_type == MySQL::__READ_OPERATION__) {
 				$this->_lastQuery = $this->_result->queryString;
 
 				if($type == "ASSOC") {
@@ -167,10 +168,8 @@
 						$this->_lastResult[] = $row;
 					}
 				}
-
-				$this->_result->closeCursor();
 			}
-
+			$this->_result->closeCursor();
 			$stop = precision_timer('stop', $start);
 
 			/**
