@@ -159,7 +159,7 @@
 		 * @return boolean
 		 */
 		public static function edit($id, array $fields){
-			if(!Symphony::Database()->update($fields, "tbl_fields", " `id` = '$id'")) return false;
+			if(!Symphony::Database()->update($fields, "tbl_fields", ' `id` = ?', array($id))) return false;
 
 			return true;
 		}

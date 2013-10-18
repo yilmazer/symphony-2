@@ -320,7 +320,7 @@
 			}
 			// Extension is installed, so update!
 			else {
-				Symphony::Database()->update($fields, 'tbl_extensions', " `id` = '$id '");
+				Symphony::Database()->update($fields, 'tbl_extensions', ' `id` = ?', array($id));
 			}
 
 			self::registerDelegates($name);
@@ -358,7 +358,7 @@
 					'version' => $info['version']
 				),
 				'tbl_extensions',
-				" `id` = '$id '"
+				' `id` = ?', array($id)
 			);
 
 			$obj->disable();

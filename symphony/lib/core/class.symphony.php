@@ -413,7 +413,7 @@
 					// Only migrate hashes if there is no update available as the update might change the tbl_authors table.
 					if($this->isUpgradeAvailable() === false && Cryptography::requiresMigration($this->Author->get('password'))){
 						$this->Author->set('password', Cryptography::hash($password));
-						self::Database()->update(array('password' => $this->Author->get('password')), 'tbl_authors', " `id` = '" . $this->Author->get('id') . "'");
+						self::Database()->update(array('password' => $this->Author->get('password')), 'tbl_authors', ' `id` = ?', array($this->Author->get('id')));
 					}
 
 					$this->Cookie->set('username', $username);
@@ -421,7 +421,7 @@
 					self::Database()->update(array(
 						'last_seen' => DateTimeObj::get('Y-m-d H:i:s')),
 						'tbl_authors',
-						sprintf(" `id` = %d", $this->Author->get('id'))
+						' `id` = ?', array($this->Author->get('id'))
 					);
 
 					return true;
@@ -479,7 +479,7 @@
 				$this->Author = AuthorManager::fetchByID($row['id']);
 				$this->Cookie->set('username', $row['username']);
 				$this->Cookie->set('pass', $row['password']);
-				self::Database()->update(array('last_seen' => DateTimeObj::getGMT('Y-m-d H:i:s')), 'tbl_authors', " `id` = '{$row['id']}'");
+				self::Database()->update(array('last_seen' => DateTimeObj::getGMT('Y-m-d H:i:s')), 'tbl_authors', ' `id` = ?', array($row['id']));
 
 				return true;
 			}
@@ -531,7 +531,7 @@
 						self::Database()->update(array(
 							'last_seen' => DateTimeObj::get('Y-m-d H:i:s')),
 							'tbl_authors',
-							sprintf(" `id` = %d", $this->Author->get('id'))
+							' `id` = ?', array($this->Author->get('id'))
 						);
 
 						// Only set custom author language in the backend

@@ -314,7 +314,7 @@
 		 *  which will update all rows in the $table
 		 * @return boolean
 		 */
-		public function update($fields, $table, $where = null) {
+		public function update($fields, $table, $where = null, $params = array()) {
 			$sql = "UPDATE `$table` SET ";
 
 			foreach($fields as $key => $val) {
@@ -323,7 +323,7 @@
 
 			$sql = trim($sql, ',') . (!is_null($where) ? ' WHERE ' . $where : null);
 
-			return MySQL::$_conn_pdo->update($sql, array_values($fields));
+			return MySQL::$_conn_pdo->update($sql, array_values($fields), $params);
 		}
 
 		/**

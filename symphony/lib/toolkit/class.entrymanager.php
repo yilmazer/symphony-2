@@ -146,7 +146,10 @@
 					'modification_date_gmt' => $entry->get('modification_date_gmt')
 				),
 				'tbl_entries',
-				sprintf(' `id` = %d', $entry->get('id'))
+				' `id` = ?',
+				array(
+					$entry->get('id')
+				)
 			);
 
 			// Iterate over all data for this entry, deleting existing data first
@@ -350,7 +353,7 @@
 			}
 
 			else if (self::$_fetchSortField == 'system:id' || self::$_fetchSortField == 'id') {
-				$sort = 'ORDER BY `e`.`id`' . self::$_fetchSortDirection;
+				$sort = 'ORDER BY `e`.`id` ' . self::$_fetchSortDirection;
 			}
 
 			else if (self::$_fetchSortField && $field = FieldManager::fetch(self::$_fetchSortField)) {
@@ -364,7 +367,7 @@
 			}
 
 			else {
-				$sort = 'ORDER BY `e`.`id`' . self::$_fetchSortDirection;
+				$sort = 'ORDER BY `e`.`id` ' . self::$_fetchSortDirection;
 			}
 
 			if ($entry_id && !is_array($entry_id)) $entry_id = array($entry_id);

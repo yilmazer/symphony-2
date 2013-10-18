@@ -307,7 +307,11 @@
 		 * @param array $values
 		 * @return PDOStatement
 		 */
-		public function update($query, array $values) {
+		public function update($query, array $values, array $where_values) {
+			if(!empty($where_values)) {
+				$values = array_merge($values, $where_values);
+			}
+
 			$result = $this->q($query, $values);
 
 			return $result;
@@ -366,9 +370,12 @@
 		 * @param string $query
 		 * @param array $params
 		 *  Supports `fetch-type` and `offset` parameters for the moment
+		 * @param array $values
+		 *  If the `$query` has placeholders, this parameter will include the data
+		 *  to subsitute into the placeholders
 		 * @return boolean
 		 */
-		public function query($query, $params = array()) {
+		public function query($query, array $params = array(), array $values = array()) {
 			if(empty($query)) return false;
 
 			$query_type = $this->determineQueryType($query);
@@ -389,7 +396,7 @@
 			}
 
 			$this->_log_enabled = false;
-			$this->q($query, null, false);
+			$this->q($query, $values, false);
 			$this->_log_enabled = true;
 
 			if($this->_result instanceof PDOStatement && $query_type == self::__READ_OPERATION__) {
