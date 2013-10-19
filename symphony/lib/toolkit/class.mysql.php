@@ -371,12 +371,12 @@
 		 * @return array
 		 *  An associative array with the column names as the keys
 		 */
-		public function fetch($query = null, $index_by_column = null, $params = array()){
+		public function fetch($query = null, $index_by_column = null, array $params = array(), array $values = array()){
 			if(!is_null($index_by_column)) {
 				$params['index'] = $index_by_column;
 			}
 
-			return MySQL::$_conn_pdo->fetch($query, $params);
+			return MySQL::$_conn_pdo->fetch($query, $params, $values);
 		}
 
 		/**
@@ -397,10 +397,10 @@
 		 *  If there is no row at the specified `$offset`, an empty array will be returned
 		 *  otherwise an associative array of that row will be returned.
 		 */
-		public function fetchRow($offset = 0, $query = null, $params = array()){
+		public function fetchRow($offset = 0, $query = null, array $values = array()){
 			$result = $this->fetch($query, null, array(
 				'offset' => $offset
-			));
+			), $values);
 
 			return $result;
 		}
@@ -418,8 +418,8 @@
 		 *  If there is no results for the `$query`, an empty array will be returned
 		 *  otherwise an array of values for that given `$column` will be returned
 		 */
-		public function fetchCol($column, $query = null){
-			$result = $this->fetch($query, $column);
+		public function fetchCol($column, $query = null, array $values = array()){
+			$result = $this->fetch($query, $column, array(), $values);
 
 			if(empty($result)) return array();
 
@@ -453,8 +453,8 @@
 		 *  Returns the value of the given column, if it doesn't exist, null will be
 		 *  returned
 		 */
-		public function fetchVar($column, $offset = 0, $query = null){
-			$result = $this->fetchRow($offset, $query);
+		public function fetchVar($column, $offset = 0, $query = null, array $values = array()){
+			$result = $this->fetchRow($offset, $query, $values);
 
 			return (empty($result) ? null : $result[$column]);
 		}

@@ -730,11 +730,12 @@
 							$id_list = array();
 							if(is_array($fields) && !empty($fields)){
 								foreach($fields as $position => $data){
-									if(isset($data['id'])) $id_list[] = $data['id'];
+									if(isset($data['id'])) $id_list[] = (int)$data['id'];
 								}
 							}
 
-							$missing_cfs = Symphony::Database()->fetchCol('id', "SELECT `id` FROM `tbl_fields` WHERE `parent_section` = '$section_id' AND `id` NOT IN ('".@implode("', '", $id_list)."')");
+							$q = (!empty($id_list)) ? str_repeat('?,', count($id_list) - 1) . '?' : "''";
+							$missing_cfs = Symphony::Database()->fetchCol('id', "SELECT `id` FROM `tbl_fields` WHERE `parent_section` = ? AND `id` NOT IN (".$q.")", array_merge(array($section_id), $id_list));
 
 							if(is_array($missing_cfs) && !empty($missing_cfs)){
 								foreach($missing_cfs as $id){

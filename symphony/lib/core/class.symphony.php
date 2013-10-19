@@ -446,33 +446,36 @@
 		 *  True if the Author is logged in, false otherwise
 		 */
 		public function loginFromToken($token){
-			$token = self::Database()->cleanValue($token);
-
 			if(strlen(trim($token)) == 0) return false;
 
 			if(strlen($token) == 6 | strlen($token) == 16) {
-				$row = self::Database()->fetchRow(0, sprintf("
+				$row = self::Database()->fetchRow(0, "
 						SELECT `a`.`id`, `a`.`username`, `a`.`password`
 						FROM `tbl_authors` AS `a`, `tbl_forgotpass` AS `f`
 						WHERE `a`.`id` = `f`.`author_id`
-						AND `f`.`expiry` > '%s'
-						AND `f`.`token` = '%s'
+						AND `f`.`expiry` > ?
+						AND `f`.`token` = ?
 						LIMIT 1
 					",
-					DateTimeObj::getGMT('c'), $token
-				));
+					array(
+						DateTimeObj::getGMT('c'),
+						$token
+					)
+				);
 
 				self::Database()->delete('tbl_forgotpass', "`token` = ?", array($token));
 			}
 			else{
 				$row = self::Database()->fetchRow(0, sprintf("
-					SELECT `id`, `username`, `password`
-					FROM `tbl_authors`
-					WHERE SUBSTR(%s(CONCAT(`username`, `password`)), 1, 8) = '%s'
-					AND `auth_token_active` = 'yes'
-					LIMIT 1",
-					'SHA1', $token
-				));
+						SELECT `id`, `username`, `password`
+						FROM `tbl_authors`
+						WHERE SUBSTR(%s(CONCAT(`username`, `password`)), 1, 8) = ?
+						AND `auth_token_active` = 'yes'
+						LIMIT 1",
+						'SHA1'
+					),
+					array($token)
+				);
 			}
 
 			if($row){

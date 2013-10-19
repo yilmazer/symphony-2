@@ -345,10 +345,10 @@
 		 * 			An integer representing the row to return
 		 * @return array
 		 */
-		public function fetch($query = null, $params = array()){
+		public function fetch($query = null, array $params = array(), array $values = array()) {
 			if(!is_null($query)) {
 				$params['fetch-type'] = 'ASSOC';
-				$this->query($query, $params);
+				$this->query($query, $params, $values);
 			}
 			else if(is_null($this->_lastResult) || $this->_lastResult === false) {
 				return array();

@@ -201,17 +201,20 @@
 				// Reset of password requested
 				elseif($action == 'reset'):
 
-					$author = Symphony::Database()->fetchRow(0, sprintf("
+					$author = Symphony::Database()->fetchRow(0, "
 							SELECT `id`, `email`, `first_name`
 							FROM `tbl_authors`
-							WHERE `email` = '%1\$s' OR `username` = '%1\$s'
-						", Symphony::Database()->cleanValue($_POST['email'])
-					));
+							WHERE `email` = ? OR `username` = ?
+						", 
+						array(
+							$_POST['email'], $_POST['email']
+						)
+					);
 
 					if(!empty($author)){
 						Symphony::Database()->delete('tbl_forgotpass', " `expiry` < ? ", array(DateTimeObj::getGMT('c')));
 
-						if(!$token = Symphony::Database()->fetchVar('token', 0, "SELECT `token` FROM `tbl_forgotpass` WHERE `expiry` > '".DateTimeObj::getGMT('c')."' AND `author_id` = ".$author['id'])){
+						if(!$token = Symphony::Database()->fetchVar('token', 0, "SELECT `token` FROM `tbl_forgotpass` WHERE `expiry` > ? AND `author_id` = ?", array(DateTimeObj::getGMT('c'), $author['id']))) {
 
 							// More secure password token generation
 							if(function_exists('openssl_random_pseudo_bytes')) {

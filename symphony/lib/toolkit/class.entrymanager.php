@@ -519,7 +519,7 @@
 		 *  The Section ID for this Entry's section
 		 */
 		public static function fetchEntrySectionID($entry_id){
-			return Symphony::Database()->fetchVar('section_id', 0, "SELECT `section_id` FROM `tbl_entries` WHERE `id` = '$entry_id' LIMIT 1");
+			return Symphony::Database()->fetchVar('section_id', 0, "SELECT `section_id` FROM `tbl_entries` WHERE `id` = ? LIMIT 1", array($entry_id));
 		}
 
 		/**
@@ -542,13 +542,17 @@
 
 			if(!is_object($section)) return false;
 
-			return Symphony::Database()->fetchVar('count', 0, "
+			return Symphony::Database()->fetchVar('count', 0, sprintf("
 				SELECT count(".($group ? 'DISTINCT ' : '')."`e`.id) as `count`
 				FROM `tbl_entries` AS `e`
-				$joins
-				WHERE `e`.`section_id` = '$section_id'
+				%s
+				WHERE `e`.`section_id` = %d
+				%s
+			",
+				$joins,
+				$section_id,
 				$where
-			");
+			));
 		}
 
 		/**

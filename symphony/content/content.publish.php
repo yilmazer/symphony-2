@@ -950,7 +950,7 @@
 			}
 
 			// Determine the page title
-			$field_id = Symphony::Database()->fetchVar('id', 0, "SELECT `id` FROM `tbl_fields` WHERE `parent_section` = '".$section->get('id')."' ORDER BY `sortorder` LIMIT 1");
+			$field_id = Symphony::Database()->fetchVar('id', 0, "SELECT `id` FROM `tbl_fields` WHERE `parent_section` = ? ORDER BY `sortorder` LIMIT 1", array($section->get('id')));
 			if(!is_null($field_id)) {
 				$field = FieldManager::fetch($field_id);
 			}
@@ -1426,9 +1426,10 @@
 				$ids = Symphony::Database()->fetchCol('entry_id', sprintf("
 					SELECT `entry_id`
 					FROM `tbl_entries_data_%d`
-					WHERE `relation_id` = %d
+					WHERE `relation_id` = ?
 					AND `entry_id` IS NOT NULL
-				", $field_id, $entry_id));
+				", $field_id),
+				array($entry_id));
 			}
 			catch(Exception $e){
 				return array();
@@ -1449,9 +1450,10 @@
 				$ids = Symphony::Database()->fetchCol('relation_id', sprintf("
 					SELECT `relation_id`
 					FROM `tbl_entries_data_%d`
-					WHERE `entry_id` = %d
+					WHERE `entry_id` = ?
 					AND `relation_id` IS NOT NULL
-				", $field_id, $entry_id));
+				", $field_id),
+				array($entry_id));
 			}
 			catch(Exception $e){
 				return array();

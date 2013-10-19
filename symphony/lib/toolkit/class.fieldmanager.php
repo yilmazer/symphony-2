@@ -340,7 +340,7 @@
 		 * @return string
 		 */
 		public static function fetchFieldTypeFromID($id){
-			return Symphony::Database()->fetchVar('type', 0, "SELECT `type` FROM `tbl_fields` WHERE `id` = '$id' LIMIT 1");
+			return Symphony::Database()->fetchVar('type', 0, "SELECT `type` FROM `tbl_fields` WHERE `id` = ? LIMIT 1", array($id));
 		}
 
 		/**
@@ -350,7 +350,7 @@
 		 * @return string
 		 */
 		public static function fetchHandleFromID($id){
-			return Symphony::Database()->fetchVar('element_name', 0, "SELECT `element_name` FROM `tbl_fields` WHERE `id` = '$id' LIMIT 1");
+			return Symphony::Database()->fetchVar('element_name', 0, "SELECT `element_name` FROM `tbl_fields` WHERE `id` = ? LIMIT 1", array($id));
 		}
 
 		/**
@@ -550,10 +550,7 @@
 		 * @return boolean
 		 */
 		public static function isFieldUsed($field_type) {
-			return Symphony::Database()->fetchVar('count', 0, sprintf("
-				SELECT COUNT(*) AS `count` FROM `tbl_fields` WHERE `type` = '%s'
-				", $field_type
-			)) > 0;
+			return Symphony::Database()->fetchVar('count', 0, "SELECT COUNT(*) AS `count` FROM `tbl_fields` WHERE `type` = ?", array($field_type)) > 0;
 		}
 
 		/**
@@ -570,11 +567,13 @@
 			if(!empty($fields)) foreach($fields as $field) {
 				try {
 					$table = Symphony::Database()->fetchVar('count', 0, sprintf("
-						SELECT COUNT(*) AS `count`
-						FROM `tbl_fields_%s`
-						WHERE `formatter` = '%s'
-					",
-						Symphony::Database()->cleanValue($field),
+							SELECT COUNT(*) AS `count`
+							FROM `tbl_fields_%s`
+							WHERE `formatter` = ?
+						",
+						Symphony::Database()->cleanValue($field)
+					),
+					array(
 						$text_formatter_handle
 					));
 				}

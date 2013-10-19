@@ -208,10 +208,8 @@
 		public static function read($id) {
 			return Symphony::Database()->fetchVar(
 				'session_data', 0,
-				sprintf(
-					"SELECT `session_data` FROM `tbl_sessions` WHERE `session` = '%s' LIMIT 1",
-					Symphony::Database()->cleanValue($id)
-				)
+				"SELECT `session_data` FROM `tbl_sessions` WHERE `session` = ? LIMIT 1", 
+				array($id)
 			);
 		}
 

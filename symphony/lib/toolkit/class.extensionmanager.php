@@ -460,14 +460,15 @@
 
 			if(!file_exists($path)) return false;
 
-			$delegates = Symphony::Database()->fetchCol('id', sprintf("
+			$delegates = Symphony::Database()->fetchCol('id', "
 					SELECT tbl_extensions_delegates.`id`
 					FROM `tbl_extensions_delegates`
 					LEFT JOIN `tbl_extensions`
 					ON (`tbl_extensions`.id = `tbl_extensions_delegates`.extension_id)
-					WHERE `tbl_extensions`.name = '%s'
-				", $name
-			));
+					WHERE `tbl_extensions`.name = ?
+				", 
+				array($name)
+			);
 
 			if(!empty($delegates)) {
 				Symphony::Database()->delete('tbl_extensions_delegates', " `id` IN (?) ", array($delegates));

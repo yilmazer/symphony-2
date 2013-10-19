@@ -67,11 +67,11 @@
 		 *	Returns true when completed
 		 */
 		public static function delete($section_id){
-			$details = Symphony::Database()->fetchRow(0, "SELECT `sortorder` FROM tbl_sections WHERE `id` = '$section_id'");
+			$details = Symphony::Database()->fetchRow(0, "SELECT `sortorder` FROM tbl_sections WHERE `id` = ?", array($section_id));
 
 			// Delete all the entries
 			include_once(TOOLKIT . '/class.entrymanager.php');
-			$entries = Symphony::Database()->fetchCol('id', "SELECT `id` FROM `tbl_entries` WHERE `section_id` = '$section_id'");
+			$entries = Symphony::Database()->fetchCol('id', "SELECT `id` FROM `tbl_entries` WHERE `section_id` = ?", array($section_id));
 			EntryManager::delete($entries);
 
 			// Delete all the fields
@@ -167,7 +167,7 @@
 		 *	The Section ID
 		 */
 		public static function fetchIDFromHandle($handle){
-			return Symphony::Database()->fetchVar('id', 0, "SELECT `id` FROM `tbl_sections` WHERE `handle` = '$handle' LIMIT 1");
+			return Symphony::Database()->fetchVar('id', 0, "SELECT `id` FROM `tbl_sections` WHERE `handle` = ? LIMIT 1", array($handle));
 		}
 
 		/**

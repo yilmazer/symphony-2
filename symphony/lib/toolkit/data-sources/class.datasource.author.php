@@ -40,12 +40,13 @@
 					break;*/
 
 				//case DS_FILTER_OR:
-					$sql = "SELECT `id` FROM `tbl_authors` WHERE `".$field."` IN ('".implode("', '", $bits)."')";
+					$q = (!empty($bits)) ? str_repeat('?,', count($bits) - 1) . '?' : "''";
+					$sql = "SELECT `id` FROM `tbl_authors` WHERE `".$field."` IN (" . $q . ")";
 					//break;
 
 			//}
 
-			$authors = Symphony::Database()->fetchCol('id', $sql);
+			$authors = Symphony::Database()->fetchCol('id', $sql, array($bits));
 
 			return (is_array($authors) && !empty($authors) ? $authors : NULL);
 
