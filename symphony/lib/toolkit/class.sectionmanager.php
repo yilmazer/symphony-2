@@ -129,17 +129,19 @@
 				return self::$_pool[$section_id];
 			}
 
-			$sql = sprintf("
-					SELECT `s`.*
-					FROM `tbl_sections` AS `s`
-					%s
-					%s
-				",
-				!empty($section_id) ? " WHERE `s`.`id` IN (" . implode(',', $section_ids) . ") " : "",
-				empty($section_id) ? " ORDER BY `s`.`$sortfield` $order" : ""
-			);
+			if(!empty($section_id)) {
+				$placeholders = Database::addPlaceholders($section_ids);
+				$additional_sql = " WHERE `s`.`id` IN ($placeholders) ";
+			}
+			else {
+				$additional_sql = " ORDER BY `s`.`$sortfield` $order";
+			}
 
-			if(!$sections = Symphony::Database()->fetch($sql)) return ($returnSingle ? false : array());
+			$sql = "SELECT `s`.* FROM `tbl_sections` AS `s`" . $additional_sql;
+
+			if(!$sections = Symphony::Database()->fetch($sql, null, array(), $section_ids)) {
+				return ($returnSingle ? false : array());
+			}
 
 			$ret = array();
 

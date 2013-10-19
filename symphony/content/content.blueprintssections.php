@@ -734,7 +734,7 @@
 								}
 							}
 
-							$q = (!empty($id_list)) ? str_repeat('?,', count($id_list) - 1) . '?' : "''";
+							$q = Database::addPlaceholders($id_list);
 							$missing_cfs = Symphony::Database()->fetchCol('id', "SELECT `id` FROM `tbl_fields` WHERE `parent_section` = ? AND `id` NOT IN (".$q.")", array_merge(array($section_id), $id_list));
 
 							if(is_array($missing_cfs) && !empty($missing_cfs)){

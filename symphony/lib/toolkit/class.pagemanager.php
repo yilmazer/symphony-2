@@ -578,7 +578,7 @@
 					ORDER BY
 						pt.type ASC
 				",
-				array($values)
+				$values
 			);
 		}
 

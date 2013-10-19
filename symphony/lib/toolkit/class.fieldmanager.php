@@ -278,10 +278,11 @@
 				// Loop over the `ids` array, which is grouped by field type
 				// and get the field context.
 				foreach($ids as $type => $field_id) {
+					$placeholders = Database::addPlaceholders($field_id);
 					$field_contexts[$type] = Symphony::Database()->fetch(sprintf(
 						"SELECT * FROM `tbl_fields_%s` WHERE `field_id` IN (%s)",
-						$type, implode(',', $field_id)
-					), 'field_id');
+						$type, $placeholders
+					), 'field_id', array(), $field_id);
 				}
 
 				foreach($result as $f) {

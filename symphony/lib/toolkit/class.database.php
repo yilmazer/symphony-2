@@ -273,6 +273,15 @@
 				? self::__WRITE_OPERATION__
 				: self::__READ_OPERATION__);
 		}
+		
+		public static function addPlaceholders(array $values = array()) {
+			$placeholders = null;
+			if(!empty($values)) {
+				$placeholders = str_repeat('?,', count($values) - 1) . '?';
+			}
+			
+			return $placeholders;
+		}
 
 		/**
 		 * Given a query that has been prepared and an array of values to subsitute
@@ -396,12 +405,12 @@
 			if($query_type == self::__WRITE_OPERATION__) {
 				$query = preg_replace('/TYPE=(MyISAM|InnoDB)/i', 'ENGINE=$1', $query);
 			}
-			else if($query_type == self::__READ_OPERATION__ && !preg_match('/^SELECT\s+SQL(_NO)?_CACHE/i', $query)){
+			else if($query_type == self::__READ_OPERATION__ && !preg_match('/^\s*SELECT\s+SQL(_NO)?_CACHE/i', $query)){
 				if($this->isCachingEnabled()) {
-					$query = preg_replace('/^SELECT\s+/i', 'SELECT SQL_CACHE ', $query);
+					$query = preg_replace('/^\s*SELECT\s+/i', 'SELECT SQL_CACHE ', $query);
 				}
 				else {
-					$query = preg_replace('/^SELECT\s+/i', 'SELECT SQL_NO_CACHE ', $query);
+					$query = preg_replace('/^\s*SELECT\s+/i', 'SELECT SQL_NO_CACHE ', $query);
 				}
 			}
 
