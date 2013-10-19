@@ -103,7 +103,7 @@
 			foreach($entry->getData() as $field_id => $field){
 				if(!is_array($field) || empty($field)) continue;
 
-				Symphony::Database()->delete('tbl_entries_data_' . $field_id, " `entry_id` = '$entry_id'");
+				Symphony::Database()->delete('tbl_entries_data_' . $field_id, " `entry_id` = ?", array($entry_id));
 
 				$data = array(
 					'entry_id' => $entry_id
@@ -158,7 +158,7 @@
 				if (empty($field_id)) continue;
 
 				try{
-					Symphony::Database()->delete('tbl_entries_data_' . $field_id, sprintf(' `entry_id` = %d', $entry->get('id')));
+					Symphony::Database()->delete('tbl_entries_data_' . $field_id, '`entry_id` = ?', array($entry->get('id')));
 				}
 				catch(Exception $e){
 					// Discard?
@@ -238,8 +238,6 @@
 			// and process the deletion in chunks.
 			$chunks = array_chunk($entries, 2500);
 			foreach($chunks as $chunk) {
-				$entry_list = implode("', '", $chunk);
-
 				// If we weren't given a `section_id` we'll have to process individually
 				// If we don't need data for any field, we can process the whole chunk
 				// without building Entry objects, otherwise we'll need to build
@@ -283,7 +281,7 @@
 					}
 				}
 
-				Symphony::Database()->delete('tbl_entries', " `id` IN ('$entry_list') ");
+				Symphony::Database()->delete('tbl_entries', " `id` IN (?) ", array($chunk));
 			}
 
 			return true;

@@ -224,12 +224,7 @@
 		 *  True if the Session was deleted successfully, false otherwise
 		 */
 		public static function destroy($id) {
-			return Symphony::Database()->query(
-				sprintf(
-					"DELETE FROM `tbl_sessions` WHERE `session` = '%s'",
-					Symphony::Database()->cleanValue($id)
-				)
-			);
+			return Symphony::Database()->delete('`tbl_sessions`', '`session` = ?', array($id));
 		}
 
 		/**
@@ -243,11 +238,6 @@
 		 *  True on Session deletion, false if an error occurs
 		 */
 		public static function gc($max) {
-			return Symphony::Database()->query(
-				sprintf(
-					"DELETE FROM `tbl_sessions` WHERE `session_expires` <= '%s'",
-					Symphony::Database()->cleanValue(time() - $max)
-				)
-			);
+			return Symphony::Database()->delete('`tbl_sessions`', '`session_expires` <= ?', array(time() - $max));
 		}
 	}

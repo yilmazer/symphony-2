@@ -654,11 +654,14 @@
 					elseif(($fields['password'] != '' || $fields['password-confirmation'] != '') && $fields['password'] != $fields['password-confirmation']){
 						$this->_errors['password'] = $this->_errors['password-confirmation'] = __('Passwords did not match');
 					}
+
 					elseif($this->_Author->commit()){
 
-						Symphony::Database()->delete('tbl_forgotpass', " `expiry` < '".DateTimeObj::getGMT('c')."' OR `author_id` = '".$author_id."' ");
+						Symphony::Database()->delete('tbl_forgotpass', "`expiry` < ? OR `author_id` = ?", array(DateTimeObj::getGMT('c'), $author_id));
 
-						if($isOwner) Administration::instance()->login($this->_Author->get('username'), $this->_Author->get('password'), true);
+						if($isOwner) {
+							Administration::instance()->login($this->_Author->get('username'), $this->_Author->get('password'), true);
+						}
 
 						/**
 						 * After editing an author, provided with the Author object

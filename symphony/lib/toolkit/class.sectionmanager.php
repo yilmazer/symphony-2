@@ -82,13 +82,13 @@
 			}
 
 			// Delete the section
-			Symphony::Database()->delete('tbl_sections', " `id` = '$section_id'");
+			Symphony::Database()->delete('tbl_sections', "`id` = ?", array($section_id));
 
 			// Update the sort orders
 			Symphony::Database()->query("UPDATE tbl_sections SET `sortorder` = (`sortorder` - 1) WHERE `sortorder` > '".$details['sortorder']."'");
 
 			// Delete the section associations
-			Symphony::Database()->delete('tbl_sections_association', " `parent_section_id` = '$section_id'");
+			Symphony::Database()->delete('tbl_sections_association', "`parent_section_id` = ?", array($section_id));
 
 			return true;
 		}
@@ -246,10 +246,13 @@
 		 * @return boolean
 		 */
 		public static function removeSectionAssociation($field_id) {
-			return Symphony::Database()->delete('tbl_sections_association', sprintf('
-				`child_section_field_id` = %1$d OR `parent_section_field_id` = %1$d
-			',
-			$field_id));
+			return Symphony::Database()->delete(
+				'tbl_sections_association', 
+				'`child_section_field_id` = ? OR `parent_section_field_id` = ?',
+				array(
+					$field_id, $field_id
+				)
+			);
 		}
 
 		/**

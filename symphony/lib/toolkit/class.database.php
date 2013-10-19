@@ -307,11 +307,21 @@
 		 * @param array $values
 		 * @return PDOStatement
 		 */
-		public function update($query, array $values, array $where_values) {
-			if(!empty($where_values)) {
-				$values = array_merge($values, $where_values);
-			}
+		public function update($query, array $values) {
+			$result = $this->q($query, $values);
 
+			return $result;
+		}
+		
+		/**
+		 * Given a query that has been prepared and an array of values to subsitute
+		 * into the query, the function will return the result.
+		 *
+		 * @param string $query
+		 * @param array $values
+		 * @return PDOStatement
+		 */
+		public function delete($query, array $values) {
 			$result = $this->q($query, $values);
 
 			return $result;
@@ -378,7 +388,7 @@
 		public function query($query, array $params = array(), array $values = array()) {
 			if(empty($query)) return false;
 
-			$query_type = $this->determineQueryType($query);
+			$query_type = $this->determineQueryType(trim($query));
 			$start = precision_timer();
 			$query_hash = md5($query.$start);
 
@@ -444,13 +454,12 @@
 
 			if($this->_log_enabled) {
 				$start = precision_timer();
-				$query_hash = md5($query.$start);
 			}
 
 			// Cleanup from last time, set some logging parameters
 			$this->flush();
 			$this->_lastQuery = $query;
-			$this->_lastQueryHash = $query_hash;
+			$this->_lastQueryHash = md5($query.$start);
 
 			// Execute
 			try {
@@ -462,7 +471,7 @@
 				$this->error($ex);
 			}
 
-			if($this->conn->errorCode() !== PDO::ERR_NONE){
+			if($this->conn->errorCode() !== PDO::ERR_NONE) {
 				$this->error();
 
 				return false;
@@ -476,7 +485,7 @@
 			}
 
 			if($this->_log_enabled) {
-				$this->logQuery($query, $query_hash, precision_timer('stop', $start));
+				$this->logQuery($query, $this->_lastQueryHash, precision_timer('stop', $start));
 			}
 
 			return $this->_result;

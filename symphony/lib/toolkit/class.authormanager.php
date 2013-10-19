@@ -51,7 +51,7 @@
 		 * @return boolean
 		 */
 		public static function edit($id, array $fields) {
-			return Symphony::Database()->update($fields, 'tbl_authors', ' `id` = ?', array($id));
+			return Symphony::Database()->update($fields, 'tbl_authors', '`id` = ?', array($id));
 		}
 
 		/**
@@ -62,9 +62,7 @@
 		 * @return boolean
 		 */
 		public static function delete($id) {
-			return Symphony::Database()->delete('tbl_authors', sprintf(
-				" `id` = %d", $id
-			));
+			return Symphony::Database()->delete('tbl_authors', '`id` = ?', array($id));
 		}
 
 		/**

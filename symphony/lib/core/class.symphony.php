@@ -462,11 +462,11 @@
 					DateTimeObj::getGMT('c'), $token
 				));
 
-				self::Database()->delete('tbl_forgotpass', " `token` = '{$token}' ");
+				self::Database()->delete('tbl_forgotpass', "`token` = ?", array($token));
 			}
 			else{
-				$row = self::Database()->fetchRow(0, sprintf(
-					"SELECT `id`, `username`, `password`
+				$row = self::Database()->fetchRow(0, sprintf("
+					SELECT `id`, `username`, `password`
 					FROM `tbl_authors`
 					WHERE SUBSTR(%s(CONCAT(`username`, `password`)), 1, 8) = '%s'
 					AND `auth_token_active` = 'yes'

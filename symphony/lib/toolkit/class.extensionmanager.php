@@ -402,7 +402,7 @@
 			}
 
 			self::removeDelegates($name);
-			Symphony::Database()->delete('tbl_extensions', sprintf(" `name` = '%s' ", $name));
+			Symphony::Database()->delete('tbl_extensions', " `name` = ? ", array($name));
 
 			return true;
 		}
@@ -421,7 +421,7 @@
 
 			if(!$id) return false;
 
-			Symphony::Database()->delete('tbl_extensions_delegates', " `extension_id` = '$id ' ");
+			Symphony::Database()->delete('tbl_extensions_delegates', " `extension_id` = ?", array($id));
 
 			$delegates = $obj->getSubscribedDelegates();
 
@@ -470,7 +470,7 @@
 			));
 
 			if(!empty($delegates)) {
-				Symphony::Database()->delete('tbl_extensions_delegates', " `id` IN ('". implode("', '", $delegates). "') ");
+				Symphony::Database()->delete('tbl_extensions_delegates', " `id` IN (?) ", array($delegates));
 			}
 
 			// Remove the unused DB records
@@ -943,11 +943,11 @@
 
 					// If it doesnt exist, remove the DB rows
 					if(!@is_dir($path)){
-						Symphony::Database()->delete("tbl_extensions_delegates", " `extension_id` = $existing_id ");
-						Symphony::Database()->delete('tbl_extensions', " `id` = '$existing_id' LIMIT 1");
+						Symphony::Database()->delete("tbl_extensions_delegates", " `extension_id` = ?", array($existing_id));
+						Symphony::Database()->delete('tbl_extensions', " `id` = ? LIMIT 1", array($existing_id));
 					}
 					elseif ($status == 'disabled') {
-						Symphony::Database()->delete("tbl_extensions_delegates", " `extension_id` = $existing_id ");
+						Symphony::Database()->delete("tbl_extensions_delegates", " `extension_id` = ?", array($existing_id));
 					}
 				}
 			}

@@ -136,7 +136,7 @@
 			$type = self::fetchFieldTypeFromID($field_id);
 
 			// Delete the original settings:
-			Symphony::Database()->delete("`tbl_fields_".$type."`", sprintf("`field_id` = %d LIMIT 1", $field_id));
+			Symphony::Database()->delete("`tbl_fields_".$type."`", "`field_id` = ? LIMIT 1", array($field_id));
 
 			// Insert the new settings into the type table:
 			if(!isset($settings['field_id'])) {
@@ -178,8 +178,8 @@
 			$existing = self::fetch($id);
 			$existing->tearDown();
 
-			Symphony::Database()->delete('tbl_fields', " `id` = '$id'");
-			Symphony::Database()->delete('tbl_fields_'.$existing->handle(), " `field_id` = '$id'");
+			Symphony::Database()->delete('tbl_fields', "`id` = ?", array($id));
+			Symphony::Database()->delete('tbl_fields_'.$existing->handle(), "`field_id` = ?", array($id));
 			SectionManager::removeSectionAssociation($id);
 
 			Symphony::Database()->query('DROP TABLE IF EXISTS `tbl_entries_data_'.$id.'`');

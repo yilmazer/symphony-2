@@ -322,7 +322,7 @@
 			// Delete from tbl_pages/tbl_page_types
 			if($can_proceed) {
 				PageManager::deletePageTypes($page_id);
-				Symphony::Database()->delete('tbl_pages', sprintf(" `id` = %d ", $page_id));
+				Symphony::Database()->delete('tbl_pages', "`id` = ? ", array($page_id));
 				Symphony::Database()->query(sprintf("
 						UPDATE
 							tbl_pages
@@ -349,7 +349,7 @@
 		public static function deletePageTypes($page_id = null) {
 			if(is_null($page_id)) return false;
 
-			return Symphony::Database()->delete('tbl_pages_types', sprintf(" `page_id` = %d ", $page_id));
+			return Symphony::Database()->delete('tbl_pages_types', "`page_id` = ?", array($page_id));
 		}
 
 		/**

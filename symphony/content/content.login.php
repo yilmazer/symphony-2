@@ -209,7 +209,7 @@
 					));
 
 					if(!empty($author)){
-						Symphony::Database()->delete('tbl_forgotpass', " `expiry` < '".DateTimeObj::getGMT('c')."' ");
+						Symphony::Database()->delete('tbl_forgotpass', " `expiry` < ? ", array(DateTimeObj::getGMT('c')));
 
 						if(!$token = Symphony::Database()->fetchVar('token', 0, "SELECT `token` FROM `tbl_forgotpass` WHERE `expiry` > '".DateTimeObj::getGMT('c')."' AND `author_id` = ".$author['id'])){
 
