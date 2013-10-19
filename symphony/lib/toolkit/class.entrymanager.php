@@ -281,7 +281,8 @@
 					}
 				}
 
-				Symphony::Database()->delete('tbl_entries', " `id` IN (?) ", array($chunk));
+				$placeholders = Database::addPlaceholders($chunk);
+				Symphony::Database()->delete('tbl_entries', " `id` IN ($placeholders) ", $chunk);
 			}
 
 			return true;

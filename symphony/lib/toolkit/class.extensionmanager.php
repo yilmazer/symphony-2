@@ -471,7 +471,8 @@
 			);
 
 			if(!empty($delegates)) {
-				Symphony::Database()->delete('tbl_extensions_delegates', " `id` IN (?) ", array($delegates));
+				$placeholders = Database::addPlaceholders($delegates);
+				Symphony::Database()->delete('tbl_extensions_delegates', " `id` IN ($placeholders) ", $delegates);
 			}
 
 			// Remove the unused DB records

@@ -40,7 +40,7 @@
 					break;*/
 
 				//case DS_FILTER_OR:
-					$q = (!empty($bits)) ? str_repeat('?,', count($bits) - 1) . '?' : "''";
+					$q = Database::addPlaceholders($bits);
 					$sql = "SELECT `id` FROM `tbl_authors` WHERE `".$field."` IN (" . $q . ")";
 					//break;
 
