@@ -2,6 +2,10 @@
 	/**
 	 * @package toolkit
 	 */
+
+	define_safe('CDATA_BEGIN', '<![CDATA[');
+	define_safe('CDATA_END', ']]>');
+
 	/**
 	 * General is a utility class that offers a number miscellaneous of
 	 * functions that are used throughout Symphony.
@@ -156,6 +160,8 @@
 		 *  a blank string or a valid URL
 		 */
 		public static function validateURL($url = null){
+			$url = trim($url);
+
 			if(is_null($url) || $url == '') return $url;
 
 			if(!preg_match('#^http[s]?:\/\/#i', $url)){
@@ -260,61 +266,12 @@
 		}
 
 		/**
-		 * Allows you to send emails. It initializes the core email class.
-		 *
-		 * @deprecated Since Symphony 2.2
-		 * @param string $to_email
-		 *  email of the recipient
-		 * @param string $from_email
-		 *  the from email address. This is usually your email
-		 * @param string $from_name
-		 *  the name of the sender
-		 * @param string $subject
-		 *  subject of the email
-		 * @param string $message
-		 *  contents of the email
-		 * @param array $additional_headers
-		 *  an array containing additional email headers. This will NOT work
-		 *  for Content-Type header fields which will be added/overwritten by
-		 *  the email gateways.)
-		 * @return boolean
-		 *  true on success
-		 */
-		public static function sendEmail($to_email, $from_email, $from_name, $subject, $message, array $additional_headers = array()) {
-
-			try{
-				$email = Email::create();
-
-				if (!empty($additional_headers)) {
-					foreach ($additional_headers as $name => $body) {
-						$email->appendHeaderField($name, $body);
-					}
-				}
-				$email->sender_name = $from_name;
-				$email->sender_email_address = $from_email;
-
-				$email->setRecipients($to_email);
-
-				$email->text_plain = $message;
-				$email->subject = $subject;
-
-				return $email->send();
-			}
-			catch(EmailGatewayException $e){
-				Symphony::Engine()->throwCustomError('Error sending email. ' . $e->getMessage());
-			}
-			catch(EmailException $e){
-				Symphony::Engine()->throwCustomError('Error sending email. ' . $e->getMessage());
-			}
-		}
-
-		/**
 		 * Given a string, this will clean it for use as a Symphony handle. Preserves multi-byte characters.
 		 *
 		 * @since Symphony 2.2.1
 		 * @param string $string
 		 *  String to be cleaned up
-		 * @param int $max_length
+		 * @param integer $max_length
 		 *  The maximum number of characters in the handle
 		 * @param string $delim
 		 *  All non-valid characters will be replaced with this
@@ -476,6 +433,7 @@
 		 * @param boolean $silent (optional)
 		 *  true if an exception should be raised if an error occurs, false
 		 *  otherwise. this defaults to true.
+		 * @throws Exception
 		 * @return boolean
 		 */
 		public static function realiseDirectory($path, $mode = 0755, $silent = true){
@@ -509,6 +467,7 @@
 		 * @param boolean $silent (optional)
 		 *  true if an exception should be raised if an error occurs, false
 		 *  otherwise. this defaults to true.
+		 * @throws Exception
 		 * @return boolean
 		 */
 		public static function deleteDirectory($dir, $silent = true) {
@@ -707,7 +666,7 @@
 		 *  the array to filter.
 		 * @param boolean $ignore_case
 		 *  true if the case of the values in the array should be ignored, false otherwise.
-		 * @return
+		 * @return array
 		 *  a new array containing only the unique elements of the input array.
 		 */
 		public static function array_remove_duplicates(array $array, $ignore_case=false){
@@ -832,13 +791,15 @@
 		 *  the permissions as an octal number to set set on the resulting file.
 		 *  this defaults to 0644 (if omitted or set to null)
 		 * @param string $mode (optional)
-		 * the mode that the file should be opened with, defaults to 'w'. See modes
-		 * at http://php.net/manual/en/function.fopen.php
+		 *  the mode that the file should be opened with, defaults to 'w'. See modes
+		 *  at http://php.net/manual/en/function.fopen.php
+		 * @param boolean $trim (optional)
+		 *  removes tripple linebreaks
 		 * @return boolean
 		 *  true if the file is successfully opened, written to, closed and has the
 		 *  required permissions set. false, otherwise.
 		 */
-		public static function writeFile($file, $data, $perm = 0644, $mode = 'w'){
+		public static function writeFile($file, $data, $perm = 0644, $mode = 'w', $trim = false){
 			if(
 				(!is_writable(dirname($file)) || !is_readable(dirname($file))) // Folder
 				|| (file_exists($file) && (!is_readable($file) || !is_writable($file))) // File
@@ -848,6 +809,10 @@
 
 			if(!$handle = fopen($file, $mode)) {
 				return false;
+			}
+
+			if($trim === true) {
+				$data = preg_replace("/(" . PHP_EOL . "(\t+)?){2,}" . PHP_EOL . "/", PHP_EOL . PHP_EOL, trim($data));
 			}
 
 			if(fwrite($handle, $data, strlen($data)) === false) {
@@ -883,6 +848,7 @@
 		 * @param boolean $silent (optional)
 		 *  true if an exception should be raised if an error occurs, false
 		 *  otherwise. this defaults to true.
+		 * @throws Exception
 		 * @return boolean
 		 *  true if the file is successfully unlinked, if the unlink fails and
 		 *  silent is set to true then an exception is thrown. if the unlink
@@ -930,7 +896,7 @@
 		public function getMimeType($file) {
 			if (!empty($file)) {
 				// in PHP 5.3 we can use 'finfo'
-				if (PHP_VERSION_ID >= 50300) {
+				if (PHP_VERSION_ID >= 50300 && function_exists('finfo_open')) {
 					$finfo = finfo_open(FILEINFO_MIME_TYPE);
 					$mime_type = finfo_file($finfo, $file);
 					finfo_close($finfo);
@@ -1423,18 +1389,36 @@
 
 			}
 		}
-
+		
+		
 		/**
-		 * Wrap a value in CDATA tags for XSL output of non encoded data
+		 * Wrap a value in CDATA tags for XSL output of non encoded data, only
+		 * if not already wrapped.
 		 *
 		 * @since Symphony 2.3.2
+		 *
 		 * @param string $value
 		 *	The string to wrap in CDATA
 		 * @return string
 		 *	The wrapped string
 		 */
 		public static function wrapInCDATA($value) {
-			return (!empty($value)) ? '<![CDATA[' . $value . ']]>' : $value;
+			if (empty($value)) {
+				return $value;
+			}
+			
+			$startRegExp = '/^' . preg_quote(CDATA_BEGIN) . '/';
+			$endRegExp = '/' . preg_quote(CDATA_END) . '$/';
+			
+			if (!preg_match($startRegExp, $value)) {
+				$value = CDATA_BEGIN . $value;
+			}
+			
+			if (!preg_match($endRegExp, $value)) {
+				$value .= CDATA_END;
+			}
+			
+			return $value;
 		}
 
 		/**
@@ -1447,7 +1431,7 @@
 		 *	The unwrapped string
 		 */
 		public static function unwrapCDATA($value) {
-			return str_replace(array('<![CDATA[', ']]>'), '', $value);
+			return str_replace(array(CDATA_BEGIN, CDATA_END), '', $value);
 		}
 
 	}

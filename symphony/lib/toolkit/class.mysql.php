@@ -58,7 +58,7 @@
 
 	/**
 	 * The MySQL class acts as a wrapper for connecting to the Database
-	 * in Symphony. It utilises mysql_* functions in PHP to complete the usual
+	 * in Symphony. It utilises mysqli_* functions in PHP to complete the usual
 	 * querying. As well as the normal set of insert, update, delete and query
 	 * functions, some convenience functions are provided to return results
 	 * in different ways. Symphony uses a prefix to namespace it's tables in a
@@ -116,7 +116,7 @@
 		private static $_connection = array();
 
 		/**
-		 * The resource of the last result returned from mysql_query
+		 * The resource of the last result returned from mysqli_query
 		 *
 		 * @var resource
 		 */
@@ -224,12 +224,33 @@
 		}
 
 		/**
+		 * Returns the prefix used by Symphony for this Database instance.
+		 *
+		 * @since Symphony 2.4
+		 * @return string
+		 */
+		public function getPrefix(){
+			return MySQL::$_connection['tbl_prefix'];
+		}
+
+		/**
 		 * Determines if a connection has been made to the MySQL server
 		 *
 		 * @return boolean
 		 */
 		public function isConnected(){
-			return (isset(MySQL::$_connection['id']) && is_resource(MySQL::$_connection['id']));
+			try {
+				$connected = (
+					isset(MySQL::$_connection['id'])
+					&& !is_null(MySQL::$_connection['id'])
+					&& mysqli_ping(MySQL::$_connection['id'])
+				);
+			}
+			catch(Exception $ex) {
+				return false;
+			}
+
+			return $connected;
 		}
 
 		/**
@@ -239,7 +260,7 @@
 		 * @return boolean
 		 */
 		public function close(){
-			if($this->isConnected()) return mysql_close(MySQL::$_connection['id']);
+			if($this->isConnected()) return mysqli_close(MySQL::$_connection['id']);
 		}
 
 		/**
@@ -254,9 +275,11 @@
 		 *  Defaults to null
 		 * @param string $port
 		 *  Defaults to 3306.
+		 * @param null $database
+		 * @throws DatabaseException
 		 * @return boolean
 		 */
-		public function connect($host = null, $user = null, $password = null, $port ='3306', $database = null){
+		public function connect($host = null, $user = null, $password = null, $port ='3306', $database = null) {
 			MySQL::$_connection = array(
 				'host' => $host,
 				'user' => $user,
@@ -266,16 +289,16 @@
 			);
 
 			try {
-				MySQL::$_connection['id'] = mysql_connect(
-					MySQL::$_connection['host'] . ":" . MySQL::$_connection['port'], MySQL::$_connection['user'], MySQL::$_connection['pass']
+				MySQL::$_connection['id'] = mysqli_connect(
+					MySQL::$_connection['host'], MySQL::$_connection['user'], MySQL::$_connection['pass'], MySQL::$_connection['database'], MySQL::$_connection['port']
 				);
 
-				if(!$this->isConnected() || (!is_null($database) && !mysql_select_db(MySQL::$_connection['database'], MySQL::$_connection['id']))) {
-					$this->__error();
+				if(!$this->isConnected()) {
+					$this->__error('connect');
 				}
 			}
 			catch (Exception $ex) {
-				$this->__error();
+				$this->__error('connect');
 			}
 
 			return true;
@@ -294,28 +317,6 @@
 		}
 
 		/**
-		 * This function selects a MySQL database. Only used by installation
-		 * and must exists for compatibility reasons. But might be removed
-		 * in future versions. Not recommended its usage by developers.
-		 *
-		 * @link http://au2.php.net/manual/en/function.mysql-select-db.php
-		 * @param string $db
-		 *  The name of the database that is to be selected, defaults to null.
-		 * @return boolean
-		 */
-		public function select($db=NULL){
-			if ($db) MySQL::$_connection['database'] = $db;
-
-			if (!mysql_select_db(MySQL::$_connection['database'], MySQL::$_connection['id'])) {
-				$this->__error();
-				MySQL::$_connection['database'] = null;
-				return false;
-			}
-
-			return true;
-		}
-
-		/**
 		 * This will set the character encoding of the connection for sending and
 		 * receiving data. This function will run every time the database class
 		 * is being initialized. If no character encoding is provided, UTF-8
@@ -326,7 +327,7 @@
 		 *  The character encoding to use, by default this 'utf8'
 		 */
 		public function setCharacterEncoding($set='utf8'){
-			mysql_set_charset($set, MySQL::$_connection['id']);
+			mysqli_set_charset(MySQL::$_connection['id'], $set);
 		}
 
 		/**
@@ -336,6 +337,7 @@
 		 * @link http://dev.mysql.com/doc/refman/5.0/en/charset-connection.html
 		 * @param string $set
 		 *  The character encoding to use, by default this 'utf8'
+		 * @throws DatabaseException
 		 */
 		public function setCharacterSet($set='utf8'){
 			$this->query("SET character_set_connection = '$set', character_set_database = '$set', character_set_server = '$set'");
@@ -351,6 +353,7 @@
 		 * @param string $timezone
 		 *  Timezone will be a offset, `+10:00`, as not all MySQL installations will
 		 *  have the humanreadable timezone database available
+		 * @throws DatabaseException
 		 */
 		public function setTimeZone($timezone = null) {
 			if(is_null($timezone)) return;
@@ -359,9 +362,9 @@
 		}
 
 		/**
-		 * This function will clean a string using the `mysql_real_escape_string` function
+		 * This function will clean a string using the `mysqli_real_escape_string` function
 		 * taking into account the current database character encoding. Note that this
-		 * function does not encode _ or %. If `mysql_real_escape_string` doesn't exist,
+		 * function does not encode _ or %. If `mysqli_real_escape_string` doesn't exist,
 		 * `addslashes` will be used as a backup option
 		 *
 		 * @param string $value
@@ -370,10 +373,10 @@
 		 *  The escaped SQL string
 		 */
 		public static function cleanValue($value) {
-			if (function_exists('mysql_real_escape_string')) {
-				return mysql_real_escape_string($value);
-
-			} else {
+			if (function_exists('mysqli_real_escape_string') && self::isConnected()) {
+				return mysqli_real_escape_string(MySQL::$_connection['id'], $value);
+			}
+			else {
 				return addslashes($value);
 			}
 		}
@@ -412,6 +415,7 @@
 		 * REPLACE, ALTER, DELETE, UPDATE, OPTIMIZE, TRUNCATE or DROP. Anything else is
 		 * considered to be a read operation which are subject to query caching.
 		 *
+		 * @param string $query
 		 * @return integer
 		 *  `MySQL::__WRITE_OPERATION__` or `MySQL::__READ_OPERATION__`
 		 */
@@ -434,12 +438,13 @@
 		 *  Whether to return the result as objects or associative array. Defaults
 		 *  to OBJECT which will return objects. The other option is ASSOC. If $type
 		 *  is not either of these, it will return objects.
+		 * @throws DatabaseException
 		 * @return boolean
 		 *  True if the query executed without errors, false otherwise
 		 */
 		public function query($query, $type = "OBJECT"){
 
-			if(empty($query)) return false;
+			if(empty($query) || self::isConnected() === false) return false;
 
 			$start = precision_timer();
 			$query = trim($query);
@@ -466,27 +471,26 @@
 			$this->flush();
 			$this->_lastQuery = $query;
 			$this->_lastQueryHash = $query_hash;
-			$this->_result = mysql_query($query, MySQL::$_connection['id']);
-            $this->_lastInsertID = mysql_insert_id(MySQL::$_connection['id']);
-
+			$this->_result = mysqli_query(MySQL::$_connection['id'], $query);
+			$this->_lastInsertID = mysqli_insert_id(MySQL::$_connection['id']);
 			self::$_query_count++;
 
-			if(mysql_error()){
+			if(mysqli_error(MySQL::$_connection['id'])){
 				$this->__error();
 			}
-			else if(is_resource($this->_result)){
+			else if(($this->_result instanceof mysqli_result)){
 				if($type == "ASSOC") {
-					while ($row = mysql_fetch_assoc($this->_result)){
+					while ($row = mysqli_fetch_assoc($this->_result)){
 						$this->_lastResult[] = $row;
 					}
 				}
 				else {
-					while ($row = mysql_fetch_object($this->_result)){
+					while ($row = mysqli_fetch_object($this->_result)){
 						$this->_lastResult[] = $row;
 					}
 				}
 
-				mysql_free_result($this->_result);
+				mysqli_free_result($this->_result);
 			}
 
 			$stop = precision_timer('stop', $start);
@@ -570,6 +574,7 @@
 		 *  If set to true, data will updated if any key constraints are found that cause
 		 *  conflicts. By default this is set to false, which will not update the data and
 		 *  would return an SQL error
+		 * @throws DatabaseException
 		 * @return boolean
 		 */
 		public function insert(array $fields, $table, $updateOnDuplicate=false){
@@ -620,6 +625,7 @@
 		 * @param string $where
 		 *  A WHERE statement for this UPDATE statement, defaults to null
 		 *  which will update all rows in the $table
+		 * @throws DatabaseException
 		 * @return boolean
 		 */
 		public function update($fields, $table, $where = null) {
@@ -644,15 +650,16 @@
 		 * @param string $where
 		 *  A WHERE statement for this DELETE statement, defaults to null,
 		 *  which will delete all rows in the $table
+		 * @throws DatabaseException
 		 * @return boolean
 		 */
 		public function delete($table, $where = null){
 			$sql = "DELETE FROM $table";
-			
+
 			if (!is_null($where)) {
 				$sql .= " WHERE $where";
 			}
-			
+
 			return $this->query($sql);
 		}
 
@@ -669,6 +676,7 @@
 		 *  the result by. If this is omitted (and it is by default), an
 		 *  array of associative arrays is returned, with the key being the
 		 *  column names
+		 * @throws DatabaseException
 		 * @return array
 		 *  An associative array with the column names as the keys
 		 */
@@ -709,6 +717,7 @@
 		 * @param string $query
 		 *  The full SQL query to execute. Defaults to null, which will
 		 *  use the `$this->_lastResult`
+		 * @throws DatabaseException
 		 * @return array
 		 *  If there is no row at the specified `$offset`, an empty array will be returned
 		 *  otherwise an associative array of that row will be returned.
@@ -727,6 +736,7 @@
 		 * @param string $query
 		 *  The full SQL query to execute. Defaults to null, which will
 		 *  use the `$this->_lastResult`
+		 * @throws DatabaseException
 		 * @return array
 		 *  If there is no results for the `$query`, an empty array will be returned
 		 *  otherwise an array of values for that given `$column` will be returned
@@ -757,6 +767,7 @@
 		 * @param string $query
 		 *  The full SQL query to execute. Defaults to null, which will
 		 *  use the `$this->_lastResult`
+		 * @throws DatabaseException
 		 * @return string|null
 		 *  Returns the value of the given column, if it doesn't exist, null will be
 		 *  returned
@@ -775,6 +786,7 @@
 		 *  The table name
 		 * @param string $field
 		 *  The field name
+		 * @throws DatabaseException
 		 * @return boolean
 		 *  True if `$table` contains `$field`, false otherwise
 		 */
@@ -791,6 +803,7 @@
 		 * @since Symphony 2.3.4
 		 * @param string $table
 		 *  The table name
+		 * @throws DatabaseException
 		 * @return boolean
 		 *  True if `$table` exists, false otherwise
 		 */
@@ -807,10 +820,19 @@
 		 *
 		 * @uses QueryExecutionError
 		 * @throws DatabaseException
+		 * @param string $type
+		 *  Accepts one parameter, 'connect', which will return the correct
+		 *  error codes when the connection sequence fails
 		 */
-		private function __error() {
-			$msg = mysql_error();
-			$errornum = mysql_errno();
+		private function __error($type = null) {
+			if($type == 'connect') {
+				$msg = mysqli_connect_error();
+				$errornum = mysqli_connect_errno();
+			}
+			else {
+				$msg = mysqli_error(MySQL::$_connection['id']);
+				$errornum = mysqli_errno(MySQL::$_connection['id']);
+			}
 
 			/**
 			 * After a query execution has failed this delegate will provide the query,
@@ -854,6 +876,7 @@
 		 * error and debug. If no type is given, the entire log is returned,
 		 * otherwise only log messages for that type are returned
 		 *
+		 * @param null|string $type
 		 * @return array
 		 *  An array of associative array's. Log entries of the error type
 		 *  return the query the error occurred on and the error number and
@@ -904,6 +927,8 @@
 		 *  If set to true, this will set MySQL's default storage engine to MyISAM.
 		 *  Defaults to false, which will use MySQL's default storage engine when
 		 *  tables don't explicitly define which engine they should be created with
+		 * @throws DatabaseException
+		 * @throws Exception
 		 * @return boolean
 		 *  If one of the queries fails, false will be returned and no further queries
 		 *  will be executed, otherwise true will be returned.

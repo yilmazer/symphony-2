@@ -13,7 +13,7 @@
 	require_once(CORE . '/class.configuration.php');
 	require_once(CORE . '/class.log.php');
 	require_once(CORE . '/class.cookie.php');
-	require_once(CORE . '/interface.singleton.php');
+	require_once(FACE . '/interface.singleton.php');
 
 	require_once(TOOLKIT . '/class.page.php');
 	require_once(TOOLKIT . '/class.ajaxpage.php');
@@ -21,6 +21,7 @@
 	require_once(TOOLKIT . '/class.widget.php');
 	require_once(TOOLKIT . '/class.general.php');
 	require_once(TOOLKIT . '/class.cryptography.php');
+	require_once(TOOLKIT . '/class.xsrf.php');
 	require_once(TOOLKIT . '/class.profiler.php');
 	require_once(TOOLKIT . '/class.author.php');
 	require_once(TOOLKIT . '/class.email.php');
@@ -46,6 +47,12 @@
 		protected static $_instance = null;
 
 		/**
+		 * An instance of the Profiler class
+		 * @var Profiler
+		 */
+		protected static $Profiler = null;
+
+		/**
 		 * An instance of the `Configuration` class
 		 * @var Configuration
 		 */
@@ -68,12 +75,6 @@
 		 * @var Log
 		 */
 		private static $Log = null;
-
-		/**
-		 * An instance of the Profiler class
-		 * @var Profiler
-		 */
-		private static $Profiler = null;
 
 		/**
 		 * The current page namespace, used for translations
@@ -149,12 +150,13 @@
 		}
 
 		/**
-		* Accessor for the Symphony instance, whether it be Frontend
-		* or Administration
-		*
-		* @since Symphony 2.2
-		* @return Symphony
-		*/
+		 * Accessor for the Symphony instance, whether it be Frontend
+		 * or Administration
+		 *
+		 * @since Symphony 2.2
+		 * @throws Exception
+		 * @return Symphony
+		 */
 		public static function Engine() {
 			if(class_exists('Administration')) {
 				return Administration::instance();
@@ -196,6 +198,16 @@
 		}
 
 		/**
+		 * Is XSRF enabled for this Symphony install?
+		 *
+		 * @since Symphony 2.4
+		 * @return boolean
+		 */
+		public static function isXSRFEnabled() {
+			return self::Configuration()->get('enable_xsrf', 'symphony') === 'yes';
+		}
+
+		/**
 		 * Accessor for the current `Profiler` instance.
 		 *
 		 * @since Symphony 2.3
@@ -212,6 +224,8 @@
 		 *
 		 * @param string $filename (optional)
 		 *  The file to write the log to, if omitted this will default to `ACTIVITY_LOG`
+		 * @throws Exception
+		 * @return bool|void
 		 */
 		public function initialiseLog($filename = null) {
 			if(self::$Log instanceof Log && self::$Log->getLogPath() == $filename) return true;
@@ -322,6 +336,7 @@
 		 * using the connection details provided in the Symphony configuration. If any
 		 * errors occur whilst doing so, a Symphony Error Page is displayed.
 		 *
+		 * @throws SymphonyErrorPage
 		 * @return boolean
 		 *  This function will return true if the `$Database` was
 		 *  initialised successfully.
@@ -347,16 +362,9 @@
 				// MySQL wants the offset to be in the format +/-H:I, getOffset returns offset in seconds
 				$utc = new DateTime('now ' . $symphony_date->getOffset() . ' seconds', new DateTimeZone("UTC"));
 
-				// Support PHP5.2
-				// @see https://github.com/symphonycms/symphony-2/issues/1735
-				if(function_exists('date_diff') === false) {
-					$offset = mysql_date_diff($utc, $symphony_date);
-				}
 				// On PHP5.3+ we can use DateInterval to format the difference
 				// in way that MySQL will be happy
-				else {
-					$offset = $symphony_date->diff($utc)->format('%R%H:%I');
-				}
+				$offset = $symphony_date->diff($utc)->format('%R%H:%I');
 
 				self::Database()->setTimeZone($offset);
 
@@ -395,6 +403,7 @@
 		 * @param boolean $isHash
 		 *  If the password provided is already hashed, setting this parameter to
 		 *  true will stop it becoming rehashed. By default it is false.
+		 * @throws DatabaseException
 		 * @return boolean
 		 *  True if the Author was logged in, false otherwise
 		 */
@@ -444,6 +453,7 @@
 		 * @param string $token
 		 *  The Author token, which is a portion of the hashed string concatenation
 		 *  of the Author's username and password
+		 * @throws DatabaseException
 		 * @return boolean
 		 *  True if the Author is logged in, false otherwise
 		 */
@@ -545,7 +555,6 @@
 					}
 				}
 
-				$this->Cookie->expire();
 				return false;
 			}
 		}
@@ -603,7 +612,7 @@
 		/**
 		 * A wrapper for throwing a new Symphony Error page.
 		 *
-		 * @deprecated @since Symphony 2.3.2
+		 * @deprecated @since Symphony 2.3.2. This function will be removed in Symphony 2.5
 		 *
 		 * @see `throwCustomError`
 		 * @param string $heading
@@ -618,6 +627,7 @@
 		 * @param array $additional
 		 *  Allows custom information to be passed to the Symphony Error Page
 		 *  that the template may want to expose, such as custom Headers etc.
+		 * @throws SymphonyErrorPage
 		 */
 		public function customError($heading, $message, $template='generic', array $additional=array()){
 			$this->throwCustomError($message, $heading, Page::HTTP_STATUS_ERROR, $template, $additional);
@@ -644,6 +654,7 @@
 		 * @param array $additional
 		 *  Allows custom information to be passed to the Symphony Error Page
 		 *  that the template may want to expose, such as custom Headers etc.
+		 * @throws SymphonyErrorPage
 		 */
 		public function throwCustomError($message, $heading='Symphony Fatal Error', $status=Page::HTTP_STATUS_ERROR, $template='generic', array $additional=array()){
 			GenericExceptionHandler::$enabled = true;
@@ -669,58 +680,6 @@
 		 */
 		public function getException() {
 			return $this->exception;
-		}
-
-		/**
-		 * Given the `$page_id` and a `$column`, this function will return an
-		 * array of the given `$column` for the Page, including all parents.
-		 *
-		 * @deprecated This function will be removed in Symphony 2.4. Use
-		 * `PageManager::resolvePage` instead.
-		 * @param mixed $page_id
-		 * The ID of the Page that currently being viewed, or the handle of the
-		 * current Page
-		 * @return array
-		 * An array of the current Page, containing the `$column`
-		 * requested. The current page will be the last item the array, as all
-		 * parent pages are prepended to the start of the array
-		 */
-		public function resolvePage($page_id, $column) {
-			return PageManager::resolvePage($page_id, $column);
-		}
-
-		/**
-		 * Given the `$page_id`, return the complete title of the
-		 * current page.
-		 *
-		 * @deprecated This function will be removed in Symphony 2.4. Use
-		 * `PageManager::resolvePageTitle` instead.
-		 * @param mixed $page_id
-		 * The ID of the Page that currently being viewed, or the handle of the
-		 * current Page
-		 * @return string
-		 * The title of the current Page. If the page is a child of another
-		 * it will be prepended by the parent and a colon, ie. Articles: Read
-		 */
-		public function resolvePageTitle($page_id) {
-			return PageManager::resolvePage($page_id, 'title');
-		}
-
-		/**
-		 * Given the `$page_id`, return the complete path to the
-		 * current page.
-		 *
-		 * @deprecated This function will be removed in Symphony 2.4. Use
-		 * `PageManager::resolvePagePath` instead.
-		 * @param mixed $page_id
-		 * The ID of the Page that currently being viewed, or the handle of the
-		 * current Page
-		 * @return string
-		 *  The complete path to the current Page including any parent
-		 *  Pages, ie. /articles/read
-		 */
-		public function resolvePagePath($page_id) {
-			return PageManager::resolvePage($page_id, 'handle');
 		}
 
 		/**
@@ -1001,6 +960,10 @@
 				$queries
 			);
 
-			return str_replace('{SYMPHONY_URL}', SYMPHONY_URL, $html);
+			$html = str_replace('{APPLICATION_URL}', APPLICATION_URL, $html);
+			$html = str_replace('{SYMPHONY_URL}', SYMPHONY_URL, $html);
+			$html = str_replace('{URL}', URL, $html);
+
+			return $html;
 		}
 	}

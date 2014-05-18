@@ -97,10 +97,8 @@
 		/**
 		 * An associative array of the settings for this `Field` instance
 		 * @var array
-		 * @deprecated This variable will be renamed to `$_settings` in the next major
-		 *  release.
 		 */
-		protected $_fields = array();
+		protected $_settings = array();
 
 		/**
 		 * Whether this field is required inherently, defaults to false.
@@ -172,7 +170,7 @@
 		 *	 the data to toggle.
 		 * @param string $newState
 		 *	 the new value to set
-         * @param integer $entry_id (optional)
+		 * @param integer $entry_id (optional)
 		 *   an optional entry ID for more intelligent processing. defaults to null
 		 * @return array
 		 *	 the toggled data.
@@ -192,6 +190,19 @@
 		 */
 		public function canFilter(){
 			return false;
+		}
+
+		/**
+		 * Test whether this field can be filtered in the publish index. This default
+		 * implementation allows filtering. Publish Filtering allows the index view
+		 * to filter results. Subclasses should override this if
+		 * filtering is supported.
+		 *
+		 * @return boolean
+		 *	true if this can be publish-filtered, false otherwise.
+		 */
+		public function canPublishFilter(){
+			return true;
 		}
 
 		/**
@@ -318,7 +329,7 @@
 		 *	the value of the setting.
 		 */
 		public function set($setting, $value){
-			$this->_fields[$setting] = $value;
+			$this->_settings[$setting] = $value;
 		}
 
 		/**
@@ -367,11 +378,11 @@
 		 *  for that setting.
 		 */
 		public function get($setting = null){
-			if(is_null($setting)) return $this->_fields;
+			if(is_null($setting)) return $this->_settings;
 
-			if(!isset($this->_fields[$setting])) return null;
+			if(!isset($this->_settings[$setting])) return null;
 
-			return $this->_fields[$setting];
+			return $this->_settings[$setting];
 		}
 
 		/**
@@ -381,7 +392,7 @@
 		 *  the key of the setting to unset.
 		 */
 		public function remove($setting){
-			unset($this->_fields[$setting]);
+			unset($this->_settings[$setting]);
 		}
 
 		/**
@@ -411,15 +422,16 @@
 		 *
 		 * @see buildSummaryBlock()
 		 * @param XMLElement $wrapper
-		 *	the input XMLElement to which the display of this will be appended.
-		 * @param mixed errors (optional)
-		 *	the input error collection. this defaults to null.
+		 *    the input XMLElement to which the display of this will be appended.
+		 * @param mixed $errors
+		 *  the input error collection. this defaults to null.
+		 * @throws InvalidArgumentException
 		 */
 		public function displaySettingsPanel(XMLElement &$wrapper, $errors = null){
 
 			// Create header
 			$location = ($this->get('location') ? $this->get('location') : 'main');
-			$header = new XMLElement('header', NULL, array('class' => $location, 'data-name' => $this->name()));
+			$header = new XMLElement('header', NULL, array('class' => 'frame-header ' . $location, 'data-name' => $this->name()));
 			$label = (($this->get('label')) ? $this->get('label') : __('New Field'));
 			$header->appendChild(new XMLElement('h4', '<strong>' . $label . '</strong> <span class="type">' . $this->name() . '</span>'));
 			$wrapper->appendChild($header);
@@ -439,9 +451,10 @@
 		 *
 		 * @see buildLocationSelect()
 		 * @param array $errors (optional)
-		 *	an array to append html formatted error messages to. this defaults to null.
+		 *    an array to append html formatted error messages to. this defaults to null.
+		 * @throws InvalidArgumentException
 		 * @return XMLElement
-		 *	the root XML element of the html display of this.
+		 *    the root XML element of the html display of this.
 		 */
 		public function buildSummaryBlock($errors = null){
 			$div = new XMLElement('div');
@@ -478,15 +491,16 @@
 		 * whether this field will appear in the main content column or in the sidebar
 		 * when creating a new entry.
 		 *
-		 * @param string $selection (optional)
-		 *	the currently selected location, if there is one. this defaults to null.
+		 * @param string|null $selected (optional)
+		 *    the currently selected location, if there is one. this defaults to null.
 		 * @param string $name (optional)
-		 *	the name of this field. this is optional and defaults to `fields[location]`.
+		 *    the name of this field. this is optional and defaults to `fields[location]`.
 		 * @param string $label_value (optional)
-		 *	any predefined label for this widget. this is an optional argument that defaults
-		 *	to null.
+		 *    any predefined label for this widget. this is an optional argument that defaults
+		 *    to null.
+		 * @throws InvalidArgumentException
 		 * @return XMLElement
-		 *	An XMLElement representing a `<select>` field containing the options.
+		 *    An XMLElement representing a `<select>` field containing the options.
 		 */
 		public function buildLocationSelect($selected = null, $name = 'fields[location]', $label_value = null) {
 			if (!$label_value) $label_value = __('Placement');
@@ -507,16 +521,17 @@
 		 * Construct the html widget for selecting a text formatter for this field.
 		 *
 		 * @param string $selected (optional)
-		 *	the currently selected text formatter name if there is one. this defaults
-		 *	to null.
+		 *    the currently selected text formatter name if there is one. this defaults
+		 *    to null.
 		 * @param string $name (optional)
-		 *	the name of this field in the form. this is optional and defaults to
-		 *	"fields[format]".
+		 *    the name of this field in the form. this is optional and defaults to
+		 *    "fields[format]".
 		 * @param string $label_value
-		 *	the default label for the widget to construct. if null is passed in then
-		 *	this defaults to the localization of "Formatting".
+		 *    the default label for the widget to construct. if null is passed in then
+		 *    this defaults to the localization of "Formatting".
+		 * @throws InvalidArgumentException
 		 * @return XMLElement
-		 *	An XMLElement representing a `<select>` field containing the options.
+		 *    An XMLElement representing a `<select>` field containing the options.
 		 */
 		public function buildFormatterSelect($selected = null, $name='fields[format]', $label_value){
 
@@ -550,18 +565,21 @@
 		 * and does not return anything.
 		 *
 		 * @param XMLElement $wrapper
-		 *	the parent element to append the XMLElement of the Validation select to,
+		 *    the parent element to append the XMLElement of the Validation select to,
 		 *  passed by reference.
-		 * @param string $selection (optional)
-		 *	the current validator selection if there is one. defaults to null if there
-		 *	isn't.
+		 * @param string $selected (optional)
+		 *    the current validator selection if there is one. defaults to null if there
+		 *    isn't.
 		 * @param string $name (optional)
-		 *	the form element name of this field. this defaults to "fields[validator]".
+		 *    the form element name of this field. this defaults to "fields[validator]".
 		 * @param string $type (optional)
-		 *	the type of input for the validation to apply to. this defaults to 'input'
-		 *	but also accepts 'upload'.
+		 *    the type of input for the validation to apply to. this defaults to 'input'
+		 *    but also accepts 'upload'.
+		 * @param array $errors (optional)
+		 *    an associative array of errors
+		 * @throws InvalidArgumentException
 		 */
-		public function buildValidationSelect(XMLElement &$wrapper, $selected = null, $name='fields[validator]', $type='input'){
+		public function buildValidationSelect(XMLElement &$wrapper, $selected = null, $name='fields[validator]', $type='input', array $errors = null) {
 
 			include(TOOLKIT . '/util.validators.php');
 			$rules = ($type == 'upload' ? $upload : $validators);
@@ -570,11 +588,23 @@
 			$label->setAttribute('class', 'column');
 			$label->appendChild(new XMLElement('i', __('Optional')));
 			$label->appendChild(Widget::Input($name, $selected));
-			$wrapper->appendChild($label);
 
-			$ul = new XMLElement('ul', NULL, array('class' => 'tags singular'));
-			foreach($rules as $name => $rule) $ul->appendChild(new XMLElement('li', $name, array('class' => $rule)));
-			$wrapper->appendChild($ul);
+			$ul = new XMLElement('ul', NULL, array('class' => 'tags singular', 'data-interactive' => 'data-interactive'));
+			foreach($rules as $name => $rule) {
+				$ul->appendChild(new XMLElement('li', $name, array('class' => $rule)));
+			}
+
+			if(isset($errors['validator'])) {
+				$div = new XMLElement('div');
+				$div->appendChild($label);
+				$div->appendChild($ul);
+
+				$wrapper->appendChild(Widget::Error($div, $errors['validator']));
+			}
+			else {
+				$wrapper->appendChild($label);
+				$wrapper->appendChild($ul);
+			}
 
 		}
 
@@ -583,8 +613,9 @@
 		 * field is set as a required field.
 		 *
 		 * @param XMLElement $wrapper
-		 *	the parent XML element to append the constructed html checkbox to if
-		 *	necessary.
+		 *    the parent XML element to append the constructed html checkbox to if
+		 *    necessary.
+		 * @throws InvalidArgumentException
 		 */
 		public function appendRequiredCheckbox(XMLElement &$wrapper) {
 			if (!$this->_required) return;
@@ -610,7 +641,8 @@
 		 * displays a column in the entries table or not.
 		 *
 		 * @param XMLElement $wrapper
-		 *	the parent XML element to append the checkbox to.
+		 *    the parent XML element to append the checkbox to.
+		 * @throws InvalidArgumentException
 		 */
 		public function appendShowColumnCheckbox(XMLElement &$wrapper) {
 			if (!$this->_showcolumn) return;
@@ -632,15 +664,35 @@
 		}
 
 		/**
+		 * Append the default status footer to the field settings panel.
+		 * Displays the required and show column checkboxes.
+		 *
+		 * @param XMLElement $wrapper
+		 *    the parent XML element to append the checkbox to.
+		 * @throws InvalidArgumentException
+		 */
+		public function appendStatusFooter(XMLElement &$wrapper) {
+			$fieldset = new XMLElement('fieldset');
+			$div = new XMLElement('div', NULL, array('class' => 'two columns'));
+
+			$this->appendRequiredCheckbox($div);
+			$this->appendShowColumnCheckbox($div);
+
+			$fieldset->appendChild($div);
+			$wrapper->appendChild($fieldset);
+		}
+
+		/**
 		 * Append the show association html widget to the input parent XML element. This
 		 * widget allows fields that provide linking to hide or show the column in the linked
 		 * section, similar to how the Show Column functionality works, but for the linked
 		 * section.
 		 *
 		 * @param XMLElement $wrapper
-		 *	the parent XML element to append the checkbox to.
+		 *    the parent XML element to append the checkbox to.
 		 * @param string $help (optional)
-		 *	a help message to show below the checkbox.
+		 *    a help message to show below the checkbox.
+		 * @throws InvalidArgumentException
 		 */
 		public function appendShowAssociationCheckbox(XMLElement &$wrapper, $help = null) {
 			if(!$this->_showassociation) return;
@@ -651,7 +703,7 @@
 			$wrapper->appendChild(Widget::Input($name, 'no', 'hidden'));
 
 			$label = Widget::Label();
-			$label->setAttribute('class', 'column');
+			$label->setAttribute('class', 'column show-associations');
 			if($help) $label->addClass('inline-help');
 			$input = Widget::Input($name, 'yes', 'checkbox');
 
@@ -680,21 +732,28 @@
 		 */
 		public function checkFields(array &$errors, $checkForDuplicates = true) {
 			$parent_section = $this->get('parent_section');
+			$label = $this->get('label');
 			$element_name = $this->get('element_name');
 
 			if(Lang::isUnicodeCompiled()) {
-				$valid_name = preg_match('/^[\p{L}]([0-9\p{L}\.\-\_]+)?$/u', $this->get('element_name'));
+				$valid_name = preg_match('/^[\p{L}]([0-9\p{L}\.\-\_]+)?$/u', $element_name);
 			}
 			else {
-				$valid_name = preg_match('/^[A-z]([\w\d-_\.]+)?$/i', $this->get('element_name'));
+				$valid_name = preg_match('/^[A-z]([\w\d-_\.]+)?$/i', $element_name);
 			}
 
-			if ($this->get('label') == '') {
+			if ($label == '') {
 				$errors['label'] = __('This is a required field.');
 			}
+			elseif (strtolower($label) == 'id') {
+				$errors['label'] = __('%s is a reserved name used by the system and is not allowed for a field handle. Try using %s instead.', array('<code>ID</code>', '<code>UID</code>'));
+			}
 
-			if ($this->get('element_name') == '') {
+			if ($element_name == '') {
 				$errors['element_name'] = __('This is a required field.');
+			}
+			elseif ($element_name == 'id') {
+				$errors['element_name'] = __('%s is a reserved name used by the system and is not allowed for a field handle. Try using %s instead.', array('<code>id</code>', '<code>uid</code>'));
 			}
 			elseif (!$valid_name) {
 				$errors['element_name'] = __('Invalid element name. Must be valid %s.', array('<code>QName</code>'));
@@ -702,6 +761,13 @@
 			elseif($checkForDuplicates) {
 				if(FieldManager::fetchFieldIDFromElementName($element_name, $parent_section) != $this->get('id')) {
 					$errors['element_name'] = __('A field with that element name already exists. Please choose another.');
+				}
+			}
+
+			// Check that if the validator is provided that it's a valid regular expression
+			if(!is_null($this->get('validator')) && $this->get('validator') !== '') {
+				if(@preg_match($this->get('validator'), 'teststring') === false) {
+					$errors['validator'] = __('Validation rule is not a valid regular expression');
 				}
 			}
 
@@ -749,6 +815,29 @@
 		}
 
 		/**
+		 * Format this field value for display in the Associations Drawer publish index.
+		 * By default, Symphony will use the return value of the `prepareTableValue` function.
+		 *
+		 * @param Entry $e
+		 *   The associated entry
+		 * @param array $parent_association
+		 *   An array containing information about the parent
+		 *
+		 * @return XMLElement
+		 *   The XMLElement must be a li node, since it will be added an ul node.
+		 */
+		public function prepareAssociationsDrawerXMLElement(Entry $e, array $parent_association) {
+			$value = $this->prepareTableValue($e->getData($this->get('id')), null, $e->get('id'));
+			$li = new XMLElement('li');
+			$li->setAttribute('class', 'field-' . $this->get('type'));
+			$a = new XMLElement('a', strip_tags($value));
+			$a->setAttribute('href', SYMPHONY_URL . '/publish/' . $parent_association['handle'] . '/edit/' . $e->get('id') . '/');
+			$li->appendChild($a);
+
+			return $li;
+		}
+
+		/**
 		 * Display the publish panel for this field. The display panel is the
 		 * interface shown to Authors that allow them to input data into this
 		 * field for an `Entry`.
@@ -766,7 +855,7 @@
 		 * @param string $fieldnamePrefix (optional)
 		 *	the string to be prepended to the display of the name of this field.
 		 *	this defaults to null.
-		 * @param string $fieldnameSuffix (optional)
+		 * @param string $fieldnamePostfix (optional)
 		 *	the string to be appended to the display of the name of this field.
 		 *	this defaults to null.
 		 * @param integer $entry_id (optional)
@@ -837,15 +926,16 @@
 		 * Display the default data-source filter panel.
 		 *
 		 * @param XMLElement $wrapper
-		 *	the input XMLElement to which the display of this will be appended.
+		 *    the input XMLElement to which the display of this will be appended.
 		 * @param mixed $data (optional)
-		 *	the input data. this defaults to null.
-		 * @param mixed errors (optional)
-		 *	the input error collection. this defaults to null.
-		 * @param string $fieldNamePrefix
+		 *    the input data. this defaults to null.
+		 * @param null $errors
+		 *  the input error collection. this defaults to null.
+		 * @param string $fieldnamePrefix
 		 *  the prefix to apply to the display of this.
-		 * @param string $fieldNameSuffix
+		 * @param string $fieldnamePostfix
 		 *  the suffix to apply to the display of this.
+		 * @throws InvalidArgumentException
 		 */
 		public function displayDatasourceFilterPanel(XMLElement &$wrapper, $data = null, $errors = null, $fieldnamePrefix = null, $fieldnamePostfix = null){
 			$wrapper->appendChild(new XMLElement('header', '<h4>' . $this->get('label') . '</h4> <span>' . $this->name() . '</span>', array(
@@ -1097,6 +1187,7 @@
 		 * and serves as a basic guide for how markup should be constructed on the
 		 * `Frontend` to save this field
 		 *
+		 * @throws InvalidArgumentException
 		 * @return XMLElement
 		 *  a label widget containing the formatted field element name of this.
 		 */
@@ -1144,6 +1235,7 @@
 		 * to overload this method to create a table structure that contains
 		 * additional columns to store the specific data created by the field.
 		 *
+		 * @throws DatabaseException
 		 * @return boolean
 		 */
 		public function createTable(){
@@ -1163,12 +1255,13 @@
 		 * Remove the entry data of this field from the database.
 		 *
 		 * @param integer|array $entry_id
-		 *	the ID of the entry, or an array of entry ID's to delete.
+		 *    the ID of the entry, or an array of entry ID's to delete.
 		 * @param array $data (optional)
-		 *	The entry data provided for fields to do additional cleanup
+		 *    The entry data provided for fields to do additional cleanup
 		 *  This is an optional argument and defaults to null.
+		 * @throws DatabaseException
 		 * @return boolean
-		 *	Returns true after the cleanup has been completed
+		 *    Returns true after the cleanup has been completed
 		 */
 		public function entryDataCleanup($entry_id, $data=NULL){
 			$where = is_array($entry_id)
@@ -1178,40 +1271,6 @@
 			Symphony::Database()->delete('tbl_entries_data_' . $this->get('id'), $where);
 
 			return true;
-		}
-
-		/**
-		 * Create an association between a section and a field.
-		 *
-		 * @deprecated This function will be removed in a future Symphony release,
-		 *  Use `SectionManager::createSectionAssociation` instead.
-		 * @param integer $parent_section_id
-		 *  The linked section id.
-		 * @param integer $child_field_id
-		 *  The field ID of the field that is creating the association
-		 * @param integer $parent_field_id (optional)
-		 *  The field ID of the linked field in the linked section
-		 * @param boolean $show_association (optional)
-		 *  Whether of not the link should be shown on the entries table of the
-		 *  linked section. This defaults to true.
-		 * @return boolean
-		 *  true if the association was successfully made, false otherwise.
-		 */
-		public function createSectionAssociation($parent_section_id = null, $child_field_id = null, $parent_field_id = null, $show_association = true){
-			return SectionManager::createSectionAssociation($parent_section_id, $child_field_id, $parent_field_id, $show_association);
-		}
-
-		/**
-		 * Permanently remove a section association for this field in the database.
-		 *
-		 * @deprecated This function will be removed in a future Symphony release,
-		 *  Use `SectionManager::removeSectionAssociation` instead.
-		 * @param integer $child_field_id
-		 *  the field ID of the linked section's linked field.
-		 * @return boolean
-		 */
-		public function removeSectionAssociation($child_field_id){
-			return SectionManager::removeSectionAssociation($child_field_id);
 		}
 
 		/**
@@ -1259,11 +1318,4 @@
 		 */
 		public function fetchAssociatedEntryIDs($value){}
 
-		/**
-		 * @deprecated This function name has a typo that has withstood many versions of
-		 *  Symphony. The correct function is `$this->buildDSRetrievalSQL`.
-		 */
-		public function buildDSRetrivalSQL($data, &$joins, &$where, $andOperation = false) {
-			return $this->buildDSRetrievalSQL($data, $joins, $where, $andOperation);
-		}
 	}

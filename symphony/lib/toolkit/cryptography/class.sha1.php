@@ -44,6 +44,7 @@
 		 * the cleartext password
 		 * @param string $hash
 		 * the hash the password should be checked against
+		 * @param boolean $isHash
 		 * @return boolean
 		 * the result of the comparison
 		 */

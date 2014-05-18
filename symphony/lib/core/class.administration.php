@@ -43,6 +43,16 @@
 		public $Page;
 
 		/**
+		 * Overrides the default Symphony constructor to add XSRF checking
+		 */
+		protected function __construct() {
+			parent::__construct();
+
+			// Ensure the request is legitimate. RE: #1874
+			if(self::isXSRFEnabled()) XSRF::validateRequest();
+		}
+
+		/**
 		 * This function returns an instance of the Administration
 		 * class. It is the only way to create a new Administration, as
 		 * it implements the Singleton interface
@@ -95,6 +105,8 @@
 		 * @param string $page
 		 *  The URL path after the root of the Symphony installation, including a starting
 		 *  slash, such as '/login/'
+		 * @throws SymphonyErrorPage
+		 * @throws Exception
 		 * @return HTMLPage
 		 */
 		private function __buildPage($page){
@@ -184,43 +196,10 @@
 
 				// Do any extensions need updating?
 				$extensions = Symphony::ExtensionManager()->listInstalledHandles();
+
 				if(is_array($extensions) && !empty($extensions) && $this->__canAccessAlerts()) {
 					foreach($extensions as $name) {
-						try {
-							$about = Symphony::ExtensionManager()->about($name);
-						}
-						catch (Exception $ex) {
-							// The extension cannot be found, show an error message and let the user remove
-							// or rename the extension folder.
-							if (isset($_POST['extension-missing'])) {
-								if(isset($_POST['action']['delete'])) {
-									Symphony::ExtensionManager()->cleanupDatabase();
-								}
-								else if (isset($_POST['action']['rename'])) {
-									if(!@rename(EXTENSIONS . '/' . $_POST['existing-folder'], EXTENSIONS . '/' . $_POST['new-folder'])) {
-										$this->throwCustomError(
-											__('Could not find extension %s at location %s.', array(
-												'<code>' . $ex->getAdditional()->name . '</code>',
-												'<code>' . $ex->getAdditional()->path . '</code>'
-											)),
-											__('Symphony Extension Missing Error'),
-											Page::HTTP_STATUS_ERROR,
-											'missing_extension',
-											array(
-												'name' => $ex->getAdditional()->name,
-												'path' => $ex->getAdditional()->path,
-												'rename_failed' => true
-											)
-										);
-									}
-								}
-
-								redirect(SYMPHONY_URL . '/system/extensions/');
-							}
-							else {
-								throw $ex;
-							}
-						}
+						$about = Symphony::ExtensionManager()->about($name);
 
 						if(array_key_exists('status', $about) && in_array(EXTENSION_REQUIRES_UPDATE, $about['status'])) {
 							$this->Page->pageAlert(
@@ -445,12 +424,19 @@
 		 * @param string $page
 		 *  The result of getCurrentPage, which returns the $_GET['symphony-page']
 		 *  variable.
+		 * @throws Exception
+		 * @throws SymphonyErrorPage
 		 * @return string
 		 *  The HTML of the page to return
 		 */
 		public function display($page){
 			Symphony::Profiler()->sample('Page build process started');
 			$this->__buildPage($page);
+
+			// Add XSRF token to form's in the backend
+			if(self::isXSRFEnabled() && isset($this->Page->Form)) {
+				$this->Page->Form->prependChild(XSRF::formToken());
+			}
 
 			/**
 			 * Immediately before generating the admin page. Provided with the page object
@@ -492,21 +478,6 @@
 				__('Page Not Found'),
 				Page::HTTP_STATUS_NOT_FOUND
 			);
-		}
-
-		/**
-		 * Writes the current Symphony Configuration object to a file in the
-		 * CONFIG directory. This will overwrite any existing configuration
-		 * file every time this function is called.
-		 *
-		 * @deprecated This function is deprecated in Symphony 2.3 and will be
-		 * removed in Symphony 2.4. Use `Configuration->write()` instead.
-		 * @see core.Configuration#write()
-		 * @return boolean
-		 *  True if the Configuration object was successfully written, false otherwise
-		 */
-		public function saveConfig(){
-			return self::Configuration()->write();
 		}
 
 	}

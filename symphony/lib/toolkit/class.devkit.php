@@ -73,7 +73,7 @@
 					'content'		=> 'text/html; charset=UTF-8'
 				)
 			));
-			$this->addStylesheetToHead(APPLICATION_URL . '/assets/css/devkit.css', 'screen');
+			$this->addStylesheetToHead(APPLICATION_URL . '/assets/css/devkit.min.css', 'screen', null, false);
 		}
 
 		/**
@@ -81,7 +81,8 @@
 		 * `<h1>` with an anchor to this query string
 		 *
 		 * @param XMLElement $wrapper
-		 *	The parent `XMLElement` to add the header to
+		 *    The parent `XMLElement` to add the header to
+		 * @throws InvalidArgumentException
 		 */
 		protected function buildHeader(XMLElement $wrapper) {
 			$this->setTitle(__(
@@ -110,13 +111,14 @@
 		 *
 		 * @uses ManipulateDevKitNavigation
 		 * @param XMLElement $wrapper
-		 *	The parent XMLElement to add the navigation to
+		 *    The parent XMLElement to add the navigation to
+		 * @throws InvalidArgumentException
 		 */
 		protected function buildNavigation(XMLElement $wrapper) {
 			$xml = new DOMDocument();
 			$xml->preserveWhiteSpace = false;
 			$xml->formatOutput = true;
-			$xml->load(ASSETS . '/devkit_navigation.xml');
+			$xml->load(ASSETS . '/xml/devkit_navigation.xml');
 			$root = $xml->documentElement;
 			$first = $root->firstChild;
 			$xpath = new DOMXPath($xml);
@@ -139,7 +141,7 @@
 
 			/**
 			 * Allow navigation XML to be manipulated before it is rendered.
-			 * 
+			 *
 			 * @delegate ManipulateDevKitNavigation
 			 * @param string $context
 			 *	'/frontend/'
@@ -187,12 +189,13 @@
 		/**
 		 *
 		 * @param string $name
-		 *	The name of the jump
+		 *    The name of the jump
 		 * @param string $link
-		 *	The link for this jump item
+		 *    The link for this jump item
 		 * @param boolean $active
-		 *	Whether this is the active link, if true, this will add an
-		 *	active class to the link built. By default this is false
+		 *    Whether this is the active link, if true, this will add an
+		 *    active class to the link built. By default this is false
+		 * @throws InvalidArgumentException
 		 * @return XMLElement
 		 */
 		protected function buildJumpItem($name, $link, $active = false) {
@@ -257,6 +260,7 @@
 		 * generate function
 		 *
 		 * @see toolkit.HTMLPage#generate()
+		 * @throws InvalidArgumentException
 		 * @return string
 		 */
 		public function build() {

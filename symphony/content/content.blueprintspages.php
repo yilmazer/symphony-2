@@ -98,10 +98,10 @@
 			}
 
 			$aTableHead = array(
-				array(__('Title'), 'col'),
+				array(__('Name'), 'col'),
 				array(__('Template'), 'col'),
 				array('<abbr title="' . __('Universal Resource Locator') . '">' . __('URL') . '</abbr>', 'col'),
-				array('<abbr title="' . __('Universal Resource Locator') . '">' . __('URL') . '</abbr> ' . __('Parameters'), 'col'),
+				array(__('Parameters'), 'col'),
 				array(__('Type'), 'col')
 			);
 			$aTableBody = array();
@@ -132,17 +132,18 @@
 					$page_url = URL . '/' . PageManager::resolvePagePath($page['id']) . '/';
 					$page_edit_url = Administration::instance()->getCurrentPageURL() . 'edit/' . $page['id'] . '/';
 					$page_template = PageManager::createFilePath($page['path'], $page['handle']);
-					$page_template_url = Administration::instance()->getCurrentPageURL() . 'template/' . $page_template . '/';
 
 					$col_title = Widget::TableData(Widget::Anchor(
 						$page_title, $page_edit_url, $page['handle']
 					));
-					$col_title->appendChild(Widget::Input("items[{$page['id']}]", null, 'checkbox'));
+					$col_title->appendChild(Widget::Label(__('Select Page %s', array($page_title)), null, 'accessible', null, array(
+						'for' => 'page-' . $page['id']
+					)));
+					$col_title->appendChild(Widget::Input('items['.$page['id'].']', 'on', 'checkbox', array(
+						'id' => 'page-' . $page['id']
+					)));
 
-					$col_template = Widget::TableData(Widget::Anchor(
-						$page_template . '.xsl',
-						$page_template_url
-					));
+					$col_template = Widget::TableData($page_template . '.xsl');
 
 					$col_url = Widget::TableData(Widget::Anchor($page_url, $page_url));
 
@@ -187,10 +188,16 @@
 
 			$table = Widget::Table(
 				Widget::TableHead($aTableHead), null,
-				Widget::TableBody($aTableBody), 'orderable selectable'
+				Widget::TableBody($aTableBody), 'orderable selectable',
+				null, array('role' => 'directory', 'aria-labelledby' => 'symphony-subheading', 'data-interactive' => 'data-interactive')
 			);
 
 			$this->Form->appendChild($table);
+			
+			$version = new XMLElement('p', 'Symphony ' . Symphony::Configuration()->get('version', 'symphony'), array(
+				'id' => 'version'
+			));
+			$this->Form->appendChild($version);
 
 			$tableActions = new XMLElement('div');
 			$tableActions->setAttribute('class', 'actions');
@@ -226,118 +233,6 @@
 			}
 		}
 
-		public function __viewTemplate() {
-			$this->setPageType('form');
-			$handle = isset($this->_context[1]) ? $this->_context[1] : null;
-			$this->Form->setAttribute('action', SYMPHONY_URL . '/blueprints/pages/template/' . $handle . '/');
-			$this->Form->setAttribute('class', 'columns');
-
-			$filename = $handle . '.xsl';
-			$file_abs = PAGES . '/' . $filename;
-
-			$is_child = strrpos($handle,'_');
-			$pagename = ($is_child != false ? substr($handle, $is_child + 1) : $handle);
-			$pagedata = PageManager::fetch(false, array('id'), array(
-				"p.handle = '{$pagename}'"
-			));
-			$pagedata = array_pop($pagedata);
-
-			if(!is_file($file_abs)) redirect(SYMPHONY_URL . '/blueprints/pages/');
-
-			$fields['body'] = @file_get_contents($file_abs);
-
-			$formHasErrors = (is_array($this->_errors) && !empty($this->_errors));
-			if($formHasErrors) {
-				$this->pageAlert(
-					__('An error occurred while processing this form. See below for details.')
-					, Alert::ERROR
-				);
-			}
-			// These alerts are only valid if the form doesn't have errors
-			else if(isset($this->_context[2])) {
-				$this->pageAlert(
-					__('Page updated at %s.', array(DateTimeObj::getTimeAgo()))
-					. ' <a href="' . SYMPHONY_URL . '/blueprints/pages/new/" accesskey="c">'
-					. __('Create another?')
-					. '</a> <a href="' . SYMPHONY_URL . '/blueprints/pages/" accesskey="a">'
-					. __('View all Pages')
-					. '</a>'
-					, Alert::SUCCESS);
-			}
-
-			$this->setTitle(__(
-				($filename ? '%1$s &ndash; %2$s &ndash; %3$s' : '%2$s &ndash; %3$s'),
-				array(
-					$filename,
-					__('Pages'),
-					__('Symphony')
-				)
-			));
-
-			$this->appendSubheading(__($filename ? $filename : __('Untitled')), Widget::Anchor(__('Edit Page'), SYMPHONY_URL . '/blueprints/pages/edit/' . $pagedata['id'] . '/', __('Edit Page Configuration'), 'button', NULL, array('accesskey' => 't')));
-			$this->insertBreadcrumbsUsingPageIdentifier($pagedata['id']);
-
-			if(!empty($_POST)) $fields = $_POST['fields'];
-
-			$fields['body'] = htmlentities($fields['body'], ENT_COMPAT, 'UTF-8');
-
-			$fieldset = new XMLElement('fieldset');
-			$fieldset->setAttribute('class', 'primary column');
-
-			$label = Widget::Label(__('Body'));
-			$label->appendChild(Widget::Textarea(
-				'fields[body]', 30, 80, $fields['body'],
-				array(
-					'class' => 'code'
-				)
-			));
-
-			if(isset($this->_errors['body'])) {
-				$label = Widget::Error($label, $this->_errors['body']);
-			}
-
-			$fieldset->appendChild($label);
-			$this->Form->appendChild($fieldset);
-
-			$utilities = General::listStructure(UTILITIES, array('xsl'), false, 'asc', UTILITIES);
-			$utilities = $utilities['filelist'];
-
-			if(is_array($utilities) && !empty($utilities)) {
-				$this->Form->setAttribute('class', 'two columns');
-
-				$div = new XMLElement('div');
-				$div->setAttribute('class', 'secondary column');
-
-				$p = new XMLElement('p', __('Utilities'));
-				$p->setAttribute('class', 'label');
-				$div->appendChild($p);
-
-				$frame = new XMLElement('div', null, array('class' => 'frame'));
-
-				$ul = new XMLElement('ul');
-				$ul->setAttribute('id', 'utilities');
-
-				foreach ($utilities as $util) {
-					$li = new XMLElement('li');
-					$li->appendChild(Widget::Anchor($util, SYMPHONY_URL . '/blueprints/utilities/edit/' . str_replace('.xsl', '', $util) . '/', NULL));
-					$ul->appendChild($li);
-				}
-
-				$frame->appendChild($ul);
-				$div->appendChild($frame);
-				$this->Form->appendChild($div);
-			}
-
-			$div = new XMLElement('div');
-			$div->setAttribute('class', 'actions');
-			$div->appendChild(Widget::Input(
-				'action[save]', __('Save Changes'),
-				'submit', array('accesskey' => 's')
-			));
-
-			$this->Form->appendChild($div);
-		}
-
 		public function __viewNew() {
 			$this->__viewEdit();
 		}
@@ -369,6 +264,7 @@
 			if(isset($this->_context[2])){
 				$flag = $this->_context[2];
 				$link_suffix = '';
+				$time = Widget::Time();
 
 				if(isset($_REQUEST['parent']) && is_numeric($_REQUEST['parent'])){
 					$link_suffix = "?parent=" . $_REQUEST['parent'];
@@ -382,7 +278,7 @@
 
 					case 'saved':
 						$this->pageAlert(
-							__('Page updated at %s.', array(DateTimeObj::getTimeAgo()))
+							__('Page updated at %s.', array($time->generate()))
 							. ' <a href="' . SYMPHONY_URL . '/blueprints/pages/new/" accesskey="c">'
 							. __('Create another?')
 							. '</a> <a href="' . SYMPHONY_URL . '/blueprints/pages/" accesskey="a">'
@@ -394,7 +290,7 @@
 
 					case 'created':
 						$this->pageAlert(
-							__('Page created at %s.', array(DateTimeObj::getTimeAgo()))
+							__('Page created at %s.', array($time->generate()))
 							. ' <a href="' . SYMPHONY_URL . '/blueprints/pages/new/" accesskey="c">'
 							. __('Create another?')
 							. '</a> <a href="' . SYMPHONY_URL . '/blueprints/pages/" accesskey="a">'
@@ -448,8 +344,7 @@
 				}
 
 				$this->appendSubheading($title, array(
-					Widget::Anchor(__('View Page'), $page_url, __('View Page on Frontend'), 'button', NULL, array('target' => '_blank', 'accesskey' => 'v')),
-					Widget::Anchor(__('Edit Page Template'), SYMPHONY_URL . '/blueprints/pages/template/' . $template_name, __('Edit Page Template'), 'button', NULL, array('accesskey' => 't'))
+					Widget::Anchor(__('View Page'), $page_url, __('View Page on Frontend'), 'button', NULL, array('target' => '_blank', 'accesskey' => 'v'))
 				));
 			}
 			else {
@@ -470,7 +365,7 @@
 			$fieldset->setAttribute('class', 'settings');
 			$fieldset->appendChild(new XMLElement('legend', __('Page Settings')));
 
-			$label = Widget::Label(__('Title'));
+			$label = Widget::Label(__('Name'));
 			$label->appendChild(Widget::Input(
 				'fields[title]', General::sanitize($fields['title'])
 			));
@@ -488,7 +383,7 @@
 			$column = new XMLElement('div');
 			$column->setAttribute('class', 'column');
 
-			$label = Widget::Label(__('URL Handle'));
+			$label = Widget::Label(__('Handle'));
 			$label->appendChild(Widget::Input(
 				'fields[handle]', $fields['handle']
 			));
@@ -540,7 +435,7 @@
 			$column = new XMLElement('div');
 			$column->setAttribute('class', 'column');
 
-			$label = Widget::Label(__('URL Parameters'));
+			$label = Widget::Label(__('Parameters'));
 			$label->appendChild(Widget::Input(
 				'fields[params]', $fields['params'], 'text', array('placeholder' => 'param1/param2')
 			));
@@ -548,7 +443,7 @@
 
 		// Type -----------------------------------------------------------
 
-			$label = Widget::Label(__('Page Type'));
+			$label = Widget::Label(__('Type'));
 			$label->appendChild(Widget::Input('fields[type]', $fields['type']));
 
 			if(isset($this->_errors['type'])) {
@@ -559,6 +454,7 @@
 
 			$tags = new XMLElement('ul');
 			$tags->setAttribute('class', 'tags');
+			$tags->setAttribute('data-interactive', 'data-interactive');
 
 			$types = PageManager::fetchAvailablePageTypes();
 			foreach($types as $type) {
@@ -673,7 +569,7 @@
 				 *  '/blueprints/pages/'
 				 * @param array $checked
 				 *  An array of the selected rows. The value is usually the ID of the
-				 *  the associated object. 
+				 *  the associated object.
 				 */
 				Symphony::ExtensionManager()->notifyMembers('CustomActions', '/blueprints/pages/', array(
 					'checked' => $checked
@@ -1104,20 +1000,4 @@
 			}
 		}
 
-		/**
-		 * Returns boolean if a the given `$type` is set for
-		 * the given `$page_id`.
-		 *
-		 * @deprecated This will be removed in Symphony 2.4.
-		 *  The preferred function is `PageManger::hasPageTypeBeenUsed`
-		 * @see toolkit.PageManager#hasPageTypeBeenUsed
-		 * @param integer $page_id
-		 *  The ID of the Page to check
-		 * @param string $type
-		 * @return boolean
-		 *  True if the type is used, false otherwise
-		 */
-		public static function typeUsed($page_id, $type) {
-			return PageManager::hasPageTypeBeenUsed($page_id, $type);
-		}
 	}

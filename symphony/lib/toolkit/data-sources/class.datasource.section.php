@@ -82,6 +82,7 @@
 		 * @param array $group
 		 *  An associative array of the group data, includes `attr`, `records`
 		 *  and `groups` keys.
+		 * @throws Exception
 		 * @return XMLElement
 		 */
 		public function processRecordGroup($element, array $group){
@@ -122,6 +123,7 @@
 		 * by this datasource to the parameter pool.
 		 *
 		 * @param Entry $entry
+		 * @throws Exception
 		 * @return XMLElement|boolean
 		 *  Returns boolean when only parameters are to be returned.
 		 */
@@ -187,6 +189,7 @@
 		 *  be set on
 		 * @param Entry $entry
 		 *  The current entry object
+		 * @throws Exception
 		 */
 		public function setAssociatedEntryCounts(XMLElement &$xEntry, Entry $entry) {
 			$associated_entry_counts = $entry->fetchAllAssociatedEntryCounts($this->_associated_sections);
@@ -278,7 +281,7 @@
 					$this->_param_pool[$param_key] = array_merge($param_pool_values, $this->_param_pool[$param_key]);
 					if($singleParam) $this->_param_pool[$key] = array_merge($param_pool_values, $this->_param_pool[$key]);
 				}
-				else{
+				else if(!is_null($param_pool_values)){
 					$this->_param_pool[$param_key][] = $param_pool_values;
 					if($singleParam) $this->_param_pool[$key][] = $param_pool_values;
 				}
@@ -294,6 +297,7 @@
 		 * @param string $where
 		 * @param string $joins
 		 * @param boolean $group
+		 * @throws Exception
 		 */
 		public function processFilters(&$where, &$joins, &$group) {
 			if(!is_array($this->dsParamFILTERS) || empty($this->dsParamFILTERS)) return;
@@ -363,9 +367,7 @@
 					$where .= $date_where;
 				}
 				else {
-					// For deprecated reasons, call the old, typo'd function name until the switch to the
-					// properly named buildDSRetrievalSQL function.
-					if(!self::$_fieldPool[$field_id]->buildDSRetrivalSQL($value, $joins, $where, ($filter_type == DataSource::FILTER_AND ? true : false))){ $this->_force_empty_result = true; return; }
+					if(!self::$_fieldPool[$field_id]->buildDSRetrievalSQL($value, $joins, $where, ($filter_type == DataSource::FILTER_AND ? true : false))){ $this->_force_empty_result = true; return; }
 					if(!$group) $group = self::$_fieldPool[$field_id]->requiresSQLGrouping();
 				}
 			}
@@ -390,8 +392,20 @@
 
 			if($this->_force_empty_result == true){
 				$this->_force_empty_result = false; //this is so the section info element doesn't disappear.
-				$result = $this->emptyXMLSet();
+				$error = new XMLElement('error', __("Data source not executed, required parameter is missing."), array(
+					'required-param' => $this->dsParamREQUIREDPARAM
+				));
+				$result->appendChild($error);
 				$result->prependChild($sectioninfo);
+
+				return $result;
+			}
+
+			if($this->_negate_result == true){
+				$this->_negate_result = false; //this is so the section info element doesn't disappear.
+				$result = $this->negateXMLSet();
+				$result->prependChild($sectioninfo);
+
 				return $result;
 			}
 
@@ -513,12 +527,13 @@
 					// If the datasource require's GROUPING
 					if(isset($this->dsParamGROUP)) {
 						self::$_fieldPool[$this->dsParamGROUP] = FieldManager::fetch($this->dsParamGROUP);
-						$groups = self::$_fieldPool[$this->dsParamGROUP]->groupRecords($entries['records']);
 
 						if (self::$_fieldPool[$this->dsParamGROUP] == NULL) {
 							throw new SymphonyErrorPage(vsprintf("The field used for grouping '%s' cannot be found.", $this->dsParamGROUP));
 						}
-						
+
+						$groups = self::$_fieldPool[$this->dsParamGROUP]->groupRecords($entries['records']);
+
 						foreach($groups as $element => $group){
 							foreach($group as $g) {
 								$result->appendChild(

@@ -27,7 +27,7 @@
 		Definition:
 	-------------------------------------------------------------------------*/
 
-		public function canToggle(){
+		public function canToggle() {
 			return ($this->get('allow_multiple_selection') == 'yes' ? false : true);
 		}
 
@@ -64,7 +64,6 @@
 			return true;
 		}
 
-
 	/*-------------------------------------------------------------------------
 		Setup:
 	-------------------------------------------------------------------------*/
@@ -90,7 +89,7 @@
 			if($field === 'author_types' && !is_array($value)){
 				$value = explode(',', $value);
 			}
-			$this->_fields[$field] = $value;
+			$this->_settings[$field] = $value;
 		}
 
 		/**
@@ -117,15 +116,13 @@
 
 		public function displaySettingsPanel(XMLElement &$wrapper, $errors = null) {
 			parent::displaySettingsPanel($wrapper, $errors);
-			$div = new XMLElement('div', NULL, array('class' => 'two columns'));
 
-			// Choose between Authors/Developers or both
+			// Author types
 			$label = Widget::Label(__('Author types'));
-			$label->setAttribute('class', 'column');
 			$types = $this->get('author_types');
 			$options = array(
 				array('author', empty($types) ? true : in_array('author', $types), __('Author')),
-                array('manager', empty($types) ? true : in_array('manager', $types), __('Manager')),
+				array('manager', empty($types) ? true : in_array('manager', $types), __('Manager')),
 				array('developer', empty($types) ? true : in_array('developer', $types), __('Developer'))
 			);
 			$label->appendChild(
@@ -133,19 +130,24 @@
 					'multiple' => 'multiple'
 				))
 			);
-			$div->appendChild($label);
 
 			if(isset($errors['author_types'])) {
-				$wrapper->appendChild(Widget::Error($div, $errors['author_types']));
+				$wrapper->appendChild(Widget::Error($label, $errors['author_types']));
 			}
-			else $wrapper->appendChild($div);
+			else $wrapper->appendChild($label);
 
-			$div = new XMLElement('div', NULL, array('class' => 'two columns'));
+			// Options
+			$div = new XMLElement('div', null, array('class' => 'two columns'));
+
 			// Allow multiple selection
 			$label = Widget::Label();
 			$label->setAttribute('class', 'column');
 			$input = Widget::Input('fields['.$this->get('sortorder').'][allow_multiple_selection]', 'yes', 'checkbox');
-			if($this->get('allow_multiple_selection') == 'yes') $input->setAttribute('checked', 'checked');
+
+			if($this->get('allow_multiple_selection') == 'yes') {
+				$input->setAttribute('checked', 'checked');
+			}
+
 			$label->setValue(__('%s Allow selection of multiple authors', array($input->generate())));
 			$div->appendChild($label);
 
@@ -153,15 +155,17 @@
 			$label = Widget::Label();
 			$label->setAttribute('class', 'column');
 			$input = Widget::Input('fields['.$this->get('sortorder').'][default_to_current_user]', 'yes', 'checkbox');
-			if($this->get('default_to_current_user') == 'yes') $input->setAttribute('checked', 'checked');
+
+			if($this->get('default_to_current_user') == 'yes') {
+				$input->setAttribute('checked', 'checked');
+			}
+
 			$label->setValue(__('%s Select current user by default', array($input->generate())));
 			$div->appendChild($label);
 			$wrapper->appendChild($div);
 
-			$div = new XMLElement('div', NULL, array('class' => 'two columns'));
-			$this->appendRequiredCheckbox($div);
-			$this->appendShowColumnCheckbox($div);
-			$wrapper->appendChild($div);
+			// Requirements and table display
+			$this->appendStatusFooter($wrapper);
 		}
 
 		public function checkFields(array &$errors, $checkForDuplicates = true) {
@@ -273,6 +277,7 @@
 					$author->getFullName(),
 					array(
 						'id' => (string)$author->get('id'),
+						'handle' => Lang::createHandle($author->getFullName()),
 						'username' => General::sanitize($author->get('username'))
 					)
 				));
@@ -506,6 +511,38 @@
 			$label->appendChild(Widget::Select($fieldname, $options, $attr));
 
 			return $label;
+		}
+
+	/*-------------------------------------------------------------------------
+		Grouping:
+	-------------------------------------------------------------------------*/
+
+		public function groupRecords($records){
+			if(!is_array($records) || empty($records)) return;
+
+			$groups = array($this->get('element_name') => array());
+
+			foreach($records as $r) {
+				$data = $r->getData($this->get('id'));
+
+				if(!isset($data['author_id'])) {
+					continue;
+				}
+
+				if(!isset($groups[$this->get('element_name')][$data['author_id']])) {
+					$author = AuthorManager::fetchByID($data['author_id']);
+
+					$groups[$this->get('element_name')][$data['author_id']] = array(
+						'attr' => array('author-id' => $data['author_id'], 'username' => $author->get('username'), 'full-name' => $author->getFullName()),
+						'records' => array(),
+						'groups' => array()
+					);
+				}
+
+				$groups[$this->get('element_name')][$data['author_id']]['records'][] = $r;
+			}
+
+			return $groups;
 		}
 
 	}

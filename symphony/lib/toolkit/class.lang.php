@@ -1,38 +1,38 @@
 <?php
-	/**
-	 * @package toolkit
-	 */
-	/**
-	 * The translation function accepts an English string and returns its translation
-	 * to the active system language. If the given string is not available in the
-	 * current dictionary the original English string will be returned. Given an optional
-	 * `$inserts` array, the function will replace translation placeholders using `vsprintf()`.
-	 * Since Symphony 2.3, it is also possible to have multiple translation of the same string
-	 * according to the page namespace (i.e. the value returned by Symphony's `getPageNamespace()`
-	 * method). In your lang file, use the `$dictionary` key as namespace and its value as an array
-	 * of context-aware translations, as shown below:
-	 *
-	 * $dictionary = array(
-	 * 		[...]
-	 *
-	 * 		'Create new' => 'Translation for Create New',
-	 *
-	 * 		'/blueprints/datasources' => array(
-	 * 			'Create new' =>
-	 * 			'If we are inside a /blueprints/datasources/* page, this translation will be returned for the string'
-	 * 		),
-	 *
-	 * 		[...]
-	 *  );
-	 *
-	 * @see core.Symphony#getPageNamespace()
-	 * @param string $string
-	 *  The string that should be translated
-	 * @param array $inserts (optional)
-	 *  Optional array used to replace translation placeholders, defaults to NULL
-	 * @return
-	 *  Returns the translated string
-	 */
+/**
+ * @package toolkit
+ */
+/**
+ * The translation function accepts an English string and returns its translation
+ * to the active system language. If the given string is not available in the
+ * current dictionary the original English string will be returned. Given an optional
+ * `$inserts` array, the function will replace translation placeholders using `vsprintf()`.
+ * Since Symphony 2.3, it is also possible to have multiple translation of the same string
+ * according to the page namespace (i.e. the value returned by Symphony's `getPageNamespace()`
+ * method). In your lang file, use the `$dictionary` key as namespace and its value as an array
+ * of context-aware translations, as shown below:
+ *
+ * $dictionary = array(
+ *        [...]
+ *
+ *        'Create new' => 'Translation for Create New',
+ *
+ *        '/blueprints/datasources' => array(
+ *            'Create new' =>
+ *            'If we are inside a /blueprints/datasources/* page, this translation will be returned for the string'
+ *        ),
+ *
+ *        [...]
+ *  );
+ *
+ * @see core.Symphony#getPageNamespace()
+ * @param string $string
+ *  The string that should be translated
+ * @param array $inserts (optional)
+ *  Optional array used to replace translation placeholders, defaults to NULL
+ * @return string
+ *  Returns the translated string
+ */
 	function __($string, $inserts=NULL) {
 		return Lang::translate($string, $inserts);
 	}
@@ -495,7 +495,7 @@
 		 *
 		 * @param string $string
 		 *  String to be cleaned up
-		 * @param int $max_length
+		 * @param integer $max_length
 		 *  The maximum number of characters in the handle
 		 * @param string $delim
 		 *  All non-valid characters will be replaced with this
@@ -533,7 +533,8 @@
 		public static function createFilename($string, $delim='-', $apply_transliteration = true) {
 			// Use the transliteration table if provided
 			if($apply_transliteration == true){
-				$string = self::applyTransliterations($string);
+				$file = pathinfo($string);
+				$string = self::applyTransliterations($file['filename']) . '.' . $file['extension'];
 			}
 
 			return General::createFilename($string, $delim);
@@ -546,7 +547,7 @@
 		 * @since Symphony 2.3
 		 * @param string $string
 		 *  The string that should be cleaned-up
-		 * @return
+		 * @return mixed
 		 *  Returns the transliterated string
 		 */
 		private static function applyTransliterations($string) {
@@ -574,17 +575,3 @@
 		}
 
 	}
-
-	/**
-	 * Status when a language is installed and enabled (will be removed in Symphony 2.4)
-	 * @deprecated
-	 * @var integer
-	 */
-	define_safe('LANGUAGE_ENABLED', 10);
-
-	/**
-	 * Status when a language is disabled (will be removed in Symphony 2.4)
-	 * @deprecated
-	 * @var integer
-	 */
-	define_safe('LANGUAGE_DISABLED', 11);

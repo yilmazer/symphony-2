@@ -18,14 +18,18 @@
 
 		public $_errors = array();
 
+		private $_filteringForm = null;
+		private $_filteringFields = array();
+		private $_filteringOptions = array();
+
 		public function sort(&$sort, &$order, $params) {
 			$section = $params['current-section'];
 
-			// If `?unsort` is appended to the URL, then sorting information are reverted
-			// to their defaults
+			// If `?unsort` is appended to the URL, then sorting is reverted
+			// to 'none', aka. by 'entry-id'.
 			if($params['unsort']) {
-				$section->setSortingField($section->getDefaultSortingField(), false);
-				$section->setSortingOrder('asc');
+				$section->setSortingField('id', false);
+				$section->setSortingOrder('desc');
 
 				redirect(Administration::instance()->getCurrentPageURL());
 			}
@@ -53,6 +57,15 @@
 					$section->setSortingOrder($order);
 
 					if ($params['filters']) {
+						$params['filters'] = '?' . trim($params['filters'], '&amp;');
+					}
+
+					redirect(Administration::instance()->getCurrentPageURL() . $params['filters']);
+				}
+
+				// If the sort order or direction remains the same, reload the page
+				if($sort == $section->getSortingField() && $order == $section->getSortingOrder()){
+					if ($params['filters']) {
 
 						$params['filters'] = '?' . trim($params['filters'], '&amp;');
 					}
@@ -61,6 +74,121 @@
 				}
 			}
 
+		}
+
+		/**
+		 * Append filtering interface
+		 */
+		public function createFilteringInterface() {
+
+			//Check if section has filtering enabled
+			$context = Administration::instance()->Page->_context;
+			$handle = $context['section_handle'];
+			$section_id = SectionManager::fetchIDFromHandle($handle);
+			$section = SectionManager::fetch($section_id);
+			$filter = $section->get('filter');
+
+			if(isset($filter) && $filter !='no'){
+
+				// Get filtering fields
+				$this->getFilteringFields();
+
+				// Append drawer
+				$this->insertDrawer(
+					Widget::Drawer('filtering', __('Filter Entries'), $this->createFilteringDrawer())
+				);
+			}
+		}
+
+		/**
+		 * Create filtering drawer
+		 */
+		public function createFilteringDrawer() {
+			$filters = $_GET['filter'];
+			$this->filteringForm = Widget::Form(null, 'get', 'filtering');
+
+			// Create existing filters
+			if(is_array($filters) && !empty($filters)) {
+				foreach($filters as $field => $search) {
+					$this->createFilter($field, $search);
+				}
+			}
+
+			// Create empty filter
+			else {
+				$this->createFilter();
+			}
+
+			// Create template
+			$this->createFilter(null, null, 'template');
+
+			return $this->filteringForm;
+		}
+
+		public function createFilter($field = null, $search = null, $class = null) {
+			$row = new XMLElement('div');
+
+			if($class) {
+				$row->setAttribute('class', 'filtering-row ' . $class);
+			}
+			else {
+				$row->setAttribute('class', 'filtering-row');
+			}
+
+			// Fields
+			$fields = $this->_filteringFields;
+			for($i = 1; $i < count($fields); $i++) {
+				if($fields[$i][0] === $field) {
+					$fields[$i][1] = true;
+				}
+			}
+
+			$div = new XMLElement('div', null, array('class' => 'filtering-controls'));
+			$div->appendChild(
+				Widget::Select('fields', $fields, array(
+					'class' => 'filtering-fields'
+				))
+			);
+
+			// Comparison
+			$needle = str_replace('regexp:', '', $search);
+			$div->appendChild(
+				Widget::Select('comparison', array(
+					array('contains', (strpos($search, 'regexp:') !== false), __('contains')),
+					array('is', (strpos($search, 'regexp:') === false), __('is'))
+				), array(
+					'class' => 'filtering-comparison'
+				))
+			);
+			$row->appendChild($div);
+
+			// Search
+			$row->appendChild(
+				Widget::Input('search', $needle, 'text', array(
+					'class' => 'filtering-search',
+					'placeholder' => __('Type to search') . ' …')
+				)
+			);
+
+			$this->filteringForm->appendChild($row);
+		}
+
+		/**
+		 * Get filter field names
+		 */
+		public function getFilteringFields() {
+			$context = $this->getContext();
+			$section_id = SectionManager::fetchIDFromHandle($context['section_handle']);
+
+			if(!$section_id) return;
+
+			// Filterable sections
+			$section = SectionManager::fetch($section_id);
+			foreach($section->fetchFilterableFields() as $field) {
+				if(!$field->canPublishFilter()) continue;
+
+				$this->_filteringFields[] = array($field->get('element_name'), false, $field->get('label'));
+			}
 		}
 
 		public function action(){
@@ -124,7 +252,7 @@
 					if($field instanceof Field) {
 						// For deprecated reasons, call the old, typo'd function name until the switch to the
 						// properly named buildDSRetrievalSQL function.
-						$field->buildDSRetrivalSQL(array($value), $joins, $where, false);
+						$field->buildDSRetrievalSQL(array($value), $joins, $where, false);
 						$filter_querystring .= sprintf("filter[%s]=%s&amp;", $handle, rawurlencode($value));
 						$prepopulate_querystring .= sprintf("prepopulate[%d]=%s&amp;", $field_id, rawurlencode($value));
 					}
@@ -144,6 +272,9 @@
 			));
 
 			$this->Form->setAttribute('action', Administration::instance()->getCurrentPageURL(). '?pg=' . $current_page.($filter_querystring ? "&amp;" . $filter_querystring : ''));
+
+			// Build filtering interface
+			$this->createFilteringInterface();
 
 			$subheading_buttons = array(
 				Widget::Anchor(__('Create New'), Administration::instance()->getCurrentPageURL().'new/'.($prepopulate_querystring ? '?' . $prepopulate_querystring : ''), __('Create a new entry'), 'create button', NULL, array('accesskey' => 'c'))
@@ -277,7 +408,7 @@
 					}
 					else {
 						$link = Widget::Anchor(
-							__('None'),
+							'',
 							Administration::instance()->getCurrentPageURL() . 'edit/' . $entry->get('id') . '/'.($filter_querystring ? '?' . $prepopulate_querystring : ''),
 							$entry->get('id'),
 							'content'
@@ -368,7 +499,12 @@
 						'entry' => $entry
 					));
 
-					$tableData[count($tableData) - 1]->appendChild(Widget::Input('items['.$entry->get('id').']', NULL, 'checkbox'));
+					$tableData[count($tableData) - 1]->appendChild(Widget::Label(__('Select Entry %d', array($entry->get('id'))), null, 'accessible', null, array(
+						'for' => 'entry-' . $entry->get('id')
+					)));
+					$tableData[count($tableData) - 1]->appendChild(Widget::Input('items['.$entry->get('id').']', NULL, 'checkbox', array(
+						'id' => 'entry-' . $entry->get('id')
+					)));
 
 					// Add a row to the body array, assigning each cell to the row
 					$aTableBody[] = Widget::TableRow($tableData, NULL, 'id-' . $entry->get('id'));
@@ -379,7 +515,9 @@
 				Widget::TableHead($aTableHead),
 				NULL,
 				Widget::TableBody($aTableBody),
-				'selectable'
+				'selectable',
+				null,
+				array('role' => 'directory', 'aria-labelledby' => 'symphony-subheading', 'data-interactive' => 'data-interactive')
 			);
 
 			$this->Form->appendChild($table);
@@ -620,8 +758,17 @@
 
 			$this->setPageType('form');
 			$this->Form->setAttribute('enctype', 'multipart/form-data');
-			$this->Form->setAttribute('class', 'two columns');
 			$this->setTitle(__('%1$s &ndash; %2$s', array($section->get('name'), __('Symphony'))));
+
+			$sidebar_fields = $section->fetchFields(NULL, 'sidebar');
+			$main_fields = $section->fetchFields(NULL, 'main');
+
+			if(!empty($sidebar_fields) && !empty($main_fields)) {
+				$this->Form->setAttribute('class', 'two columns');
+			}
+			else {
+				$this->Form->setAttribute('class', 'columns');
+			}
 
 			// Only show the Edit Section button if the Author is a developer. #938 ^BA
 			if(Administration::instance()->Author->isDeveloper()) {
@@ -686,9 +833,6 @@
 
 			$primary = new XMLElement('fieldset');
 			$primary->setAttribute('class', 'primary column');
-
-			$sidebar_fields = $section->fetchFields(NULL, 'sidebar');
-			$main_fields = $section->fetchFields(NULL, 'main');
 
 			if ((!is_array($main_fields) || empty($main_fields)) && (!is_array($sidebar_fields) || empty($sidebar_fields))) {
 				$message = __('Fields must be added to this section before an entry can be created.');
@@ -923,10 +1067,12 @@
 			if(isset($this->_context['flag'])) {
 				// These flags are only relevant if there are no errors
 				if(empty($this->_errors)) {
+					$time = Widget::Time();
+
 					switch($this->_context['flag']) {
 						case 'saved':
 							$this->pageAlert(
-								__('Entry updated at %s.', array(DateTimeObj::getTimeAgo()))
+								__('Entry updated at %s.', array($time->generate()))
 								. ' <a href="' . SYMPHONY_URL . $new_link . '" accesskey="c">'
 								. __('Create another?')
 								. '</a> <a href="' . SYMPHONY_URL . $filter_link . '" accesskey="a">'
@@ -937,7 +1083,7 @@
 
 						case 'created':
 							$this->pageAlert(
-								__('Entry created at %s.', array(DateTimeObj::getTimeAgo()))
+								__('Entry created at %s.', array($time->generate()))
 								. ' <a href="' . SYMPHONY_URL . $new_link . '" accesskey="c">'
 								. __('Create another?')
 								. '</a> <a href="' . SYMPHONY_URL . $filter_link . '" accesskey="a">'
@@ -979,8 +1125,17 @@
 
 			$this->setPageType('form');
 			$this->Form->setAttribute('enctype', 'multipart/form-data');
-			$this->Form->setAttribute('class', 'two columns');
 			$this->setTitle(__('%1$s &ndash; %2$s &ndash; %3$s', array($title, $section->get('name'), __('Symphony'))));
+
+			$sidebar_fields = $section->fetchFields(NULL, 'sidebar');
+			$main_fields = $section->fetchFields(NULL, 'main');
+
+			if(!empty($sidebar_fields) && !empty($main_fields)) {
+				$this->Form->setAttribute('class', 'two columns');
+			}
+			else {
+				$this->Form->setAttribute('class', 'columns');
+			}
 
 			// Only show the Edit Section button if the Author is a developer. #938 ^BA
 			if(Administration::instance()->Author->isDeveloper()) {
@@ -1000,9 +1155,6 @@
 
 			$primary = new XMLElement('fieldset');
 			$primary->setAttribute('class', 'primary column');
-
-			$sidebar_fields = $section->fetchFields(NULL, 'sidebar');
-			$main_fields = $section->fetchFields(NULL, 'main');
 
 			if((!is_array($main_fields) || empty($main_fields)) && (!is_array($sidebar_fields) || empty($sidebar_fields))){
 				$message = __('Fields must be added to this section before an entry can be created.');
@@ -1212,6 +1364,8 @@
 		 * Prepare a Drawer to visualize section associations
 		 *
 		 * @param  Section $section The current Section object
+		 * @throws InvalidArgumentException
+		 * @throws Exception
 		 */
 		private function prepareAssociationsDrawer($section){
 			$entry_id = (!is_null($this->_context['entry_id'])) ? $this->_context['entry_id'] : null;
@@ -1302,11 +1456,9 @@
 							));
 
 							foreach($entries['records'] as $e) {
-								$value = $field->prepareTableValue($e->getData($field->get('id')), null, $e->get('id'));
-								$li = new XMLElement('li');
-								$a = new XMLElement('a', strip_tags($value));
-								$a->setAttribute('href', SYMPHONY_URL . '/publish/' . $as['handle'] . '/edit/' . $e->get('id') . '/');
-								$li->appendChild($a);
+								// let the field create the mark up
+								$li = $field->prepareAssociationsDrawerXMLElement($e, $as);
+								// add it to the unordered list
 								$ul->appendChild($li);
 							}
 

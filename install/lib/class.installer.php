@@ -14,6 +14,9 @@
 		 * normal accessors.
 		 */
 		protected function __construct() {
+			self::$Profiler = Profiler::instance();
+			self::$Profiler->sample('Engine Initialisation');
+
 			if(get_magic_quotes_gpc()) {
 				General::cleanArray($_SERVER);
 				General::cleanArray($_COOKIE);
@@ -31,14 +34,11 @@
 			define_safe('__SYM_DATETIME_FORMAT__', __SYM_DATE_FORMAT__ . self::Configuration()->get('datetime_separator', 'region') . __SYM_TIME_FORMAT__);
 			DateTimeObj::setSettings(self::Configuration()->get('region'));
 
-			// Initialize language
+			// Initialize Language, Logs, Database and Extension Manager
 			$this->initialiseLang();
-
-			// Initialize logs
 			$this->initialiseLog(INSTALL_LOGS . '/install');
-
-			// Initialize database
 			$this->initialiseDatabase();
+			$this->initialiseExtensionManager();
 
 			// Initialize error handlers
 			GenericExceptionHandler::initialise(Symphony::Log());
@@ -257,7 +257,8 @@
 					$fields['database']['host'],
 					$fields['database']['user'],
 					$fields['database']['password'],
-					$fields['database']['port']
+					$fields['database']['port'],
+					$fields['database']['db']
 				);
 			}
 			catch(DatabaseException $e){
@@ -288,9 +289,6 @@
 				}
 				// Check the database credentials
 				else if(Symphony::Database()->isConnected()) {
-					// Looking for the given database name
-					Symphony::Database()->select($fields['database']['db']);
-
 					// Incorrect MySQL version
 					$version = Symphony::Database()->fetchVar('version', 0, "SELECT VERSION() AS `version`;");
 					if(version_compare($version, '5.0', '<')){
@@ -304,8 +302,8 @@
 						// Existing table prefix
 						$tables = Symphony::Database()->fetch(sprintf(
 							"SHOW TABLES FROM `%s` LIKE '%s'",
-							mysql_real_escape_string($fields['database']['db'], Symphony::Database()->getConnectionResource()),
-							mysql_real_escape_string($fields['database']['tbl_prefix'], Symphony::Database()->getConnectionResource()) . '%'
+							mysqli_real_escape_string(Symphony::Database()->getConnectionResource(), $fields['database']['db']),
+							mysqli_real_escape_string(Symphony::Database()->getConnectionResource(), $fields['database']['tbl_prefix']) . '%'
 						));
 
 						if(is_array($tables) && !empty($tables)) {
@@ -372,6 +370,14 @@
 				);
 			}
 
+			// Admin path not entered
+			if(trim($fields['symphony']['admin-path']) == ''){
+				$errors['no-symphony-path']  = array(
+					'msg' => 'No Symphony path entered.',
+					'details' => __('You must enter a path for accessing Symphony, or leave the default. This will be used to access Symphony\'s backend.')
+				);
+			}
+
 			return $errors;
 		}
 
@@ -381,14 +387,16 @@
 		 * @todo: Resume installation after an error has been fixed.
 		 */
 		protected static function __abort($message, $start){
-			Symphony::Log()->pushToLog($message, E_ERROR, true);
+			$result = Symphony::Log()->pushToLog($message, E_ERROR, true);
 
-			Symphony::Log()->writeToLog(        '============================================', true);
-			Symphony::Log()->writeToLog(sprintf('INSTALLATION ABORTED: Execution Time - %d sec (%s)',
-				max(1, time() - $start),
-				date('d.m.y H:i:s')
-			), true);
-			Symphony::Log()->writeToLog(        '============================================' . PHP_EOL . PHP_EOL . PHP_EOL, true);
+			if($result) {
+				Symphony::Log()->writeToLog(        '============================================', true);
+				Symphony::Log()->writeToLog(sprintf('INSTALLATION ABORTED: Execution Time - %d sec (%s)',
+					max(1, time() - $start),
+					date('d.m.y H:i:s')
+				), true);
+				Symphony::Log()->writeToLog(        '============================================' . PHP_EOL . PHP_EOL . PHP_EOL, true);
+			}
 
 			self::__render(new InstallerPage('failure'));
 		}

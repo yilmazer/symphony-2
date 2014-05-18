@@ -26,7 +26,7 @@
 		 * An array of all extensions whose status is enabled
 		 * @var array
 		 */
-		private static $_enabled_extensions = null;
+		private static $_enabled_extensions = array();
 
 		/**
 		 * An array of all the subscriptions to Symphony delegates made by extensions.
@@ -57,7 +57,7 @@
 		 * the `tbl_extension` and `tbl_extensions_delegates` tables.
 		 */
 		public function __construct() {
-			if (empty(self::$_subscriptions)) {
+			if (empty(self::$_subscriptions) && Symphony::Database()->isConnected()) {
 				$subscriptions = Symphony::Database()->fetch("
 					SELECT t1.name, t2.page, t2.delegate, t2.callback
 					FROM `tbl_extensions` as t1 INNER JOIN `tbl_extensions_delegates` as t2 ON t1.id = t2.extension_id
@@ -116,6 +116,8 @@
 		 *
 		 * @param string $name
 		 *  The name of the Extension Class minus the extension prefix.
+		 * @throws SymphonyErrorPage
+		 * @throws Exception
 		 * @return Extension
 		 */
 		public static function getInstance($name){
@@ -132,6 +134,7 @@
 		 * @param boolean $update
 		 *  Updates the `ExtensionManager::$_extensions` array even if it was
 		 *  populated, defaults to false.
+		 * @throws DatabaseException
 		 */
 		private static function __buildExtensionList($update=false) {
 			if (empty(self::$_extensions) || $update) {
@@ -209,6 +212,8 @@
 		 * @param string $type
 		 *  This will only return Providers of this type. If null, which is
 		 *  default, all providers will be returned.
+		 * @throws Exception
+		 * @throws SymphonyErrorPage
 		 * @return array
 		 *  An array of objects
 		 */
@@ -236,6 +241,30 @@
 			if(!isset(self::$_providers[$type])) return array();
 
 			return self::$_providers[$type];
+		}
+
+		/**
+		 * This function will return the `Cacheable` object with the appropriate
+		 * caching layer for the given `$key`. This `$key` should be stored in
+		 * the Symphony configuration in the caching group with a reference
+		 * to the class of the caching object. If the key is not found, this
+		 * will return a default `Cacheable` object created with the MySQL driver.
+		 *
+		 * @since Symphony 2.4
+		 * @param string $key
+		 *  Should be a reference in the Configuration file to the Caching class
+		 * @return Cacheable
+		 */
+		public static function getCacheProvider($key = null) {
+			$cacheDriver = Symphony::Configuration()->get($key, 'caching');
+			if(in_array($cacheDriver, array_keys(Symphony::ExtensionManager()->getProvidersOf('cache')))) {
+				$cacheable = new $cacheDriver;
+			}
+			else {
+				$cacheable = Symphony::Database();
+			}
+
+			return new Cacheable($cacheable);
 		}
 
 		/**
@@ -286,6 +315,8 @@
 		 * @see toolkit.ExtensionManager#__canUninstallOrDisable()
 		 * @param string $name
 		 *  The name of the Extension Class minus the extension prefix.
+		 * @throws SymphonyErrorPage
+		 * @throws Exception
 		 * @return boolean
 		 */
 		public static function enable($name){
@@ -342,6 +373,9 @@
 		 * @see toolkit.ExtensionManager#__canUninstallOrDisable()
 		 * @param string $name
 		 *  The name of the Extension Class minus the extension prefix.
+		 * @throws DatabaseException
+		 * @throws SymphonyErrorPage
+		 * @throws Exception
 		 * @return boolean
 		 */
 		public static function disable($name){
@@ -381,6 +415,10 @@
 		 * @see toolkit.ExtensionManager#__canUninstallOrDisable()
 		 * @param string $name
 		 *  The name of the Extension Class minus the extension prefix.
+		 * @throws Exception
+		 * @throws SymphonyErrorPage
+		 * @throws DatabaseException
+		 * @throws Exception
 		 * @return boolean
 		 */
 		public static function uninstall($name) {
@@ -412,6 +450,8 @@
 		 *
 		 * @param string $name
 		 *  The name of the Extension Class minus the extension prefix.
+		 * @throws Exception
+		 * @throws SymphonyErrorPage
 		 * @return integer
 		 *  The Extension ID
 		 */
@@ -488,6 +528,8 @@
 		 *
 		 * @param Extension $obj
 		 *  An extension object
+		 * @throws SymphonyErrorPage
+		 * @throws Exception
 		 * @return boolean
 		 */
 		private static function __canUninstallOrDisable(Extension $obj){
@@ -563,10 +605,13 @@
 		 *  called. eg.
 		 *
 		 * array(
-		 *		'parent' =>& $this->Parent,
-		 *		'page' => $page,
-		 *		'delegate' => $delegate
-		 *	);
+		 *        'parent' =>& $this->Parent,
+		 *        'page' => $page,
+		 *        'delegate' => $delegate
+		 *    );
+		 * @throws Exception
+		 * @throws SymphonyErrorPage
+		 * @return null|void
 		 */
 		public static function notifyMembers($delegate, $page, array $context=array()){
 			// Make sure $page is an array
@@ -615,7 +660,7 @@
 		 * @return array
 		 */
 		public static function listInstalledHandles(){
-			if(is_null(self::$_enabled_extensions)) {
+			if(empty(self::$_enabled_extensions) && Symphony::Database()->isConnected()) {
 				self::$_enabled_extensions = Symphony::Database()->fetchCol('name',
 					"SELECT `name` FROM `tbl_extensions` WHERE `status` = 'enabled'"
 				);
@@ -629,6 +674,8 @@
 		 * @param string $filter
 		 *  Allows a regular expression to be passed to return only extensions whose
 		 *  folders match the filter.
+		 * @throws SymphonyErrorPage
+		 * @throws Exception
 		 * @return array
 		 *  An associative array with the key being the extension folder and the value
 		 *  being the extension's about information
@@ -653,6 +700,7 @@
 		 *
 		 * @param array $a
 		 * @param array $b
+		 * @param integer $i
 		 * @return integer
 		 */
 		private static function sortByAuthor($a, $b, $i = 0) {
@@ -684,6 +732,8 @@
 		 * @param string $order_by (optional)
 		 *  Allows a developer to return the extensions in a particular order. The syntax is the
 		 *  same as other `fetch` methods. If omitted this will return resources ordered by `name`.
+		 * @throws Exception
+		 * @throws SymphonyErrorPage
 		 * @return array
 		 *  An associative array of Extension information, formatted in the same way as the
 		 *  listAll() method.
@@ -753,8 +803,6 @@
 		 * If the `$rawXML` parameter is passed true, and the extension has a `extension.meta.xml`
 		 * file, this function will return `DOMDocument` of the file.
 		 *
-		 * @deprecated Since Symphony 2.3, the `about()` function is deprecated for extensions
-		 *  in favour of the `extension.meta.xml` file.
 		 * @param string $name
 		 *  The name of the Extension Class minus the extension prefix.
 		 * @param boolean $rawXML
@@ -762,6 +810,8 @@
 		 *  DOMDocument of representation of the given extension's `extension.meta.xml`
 		 *  file. If the file is not available, the extension will return the normal
 		 *  `about()` results. By default this is false.
+		 * @throws Exception
+		 * @throws SymphonyErrorPage
 		 * @return array
 		 *  An associative array describing this extension
 		 */
@@ -805,6 +855,12 @@
 
 				$about = array(
 					'name' => $xpath->evaluate('string(ext:name)', $extension),
+					'handle' => $name,
+					'github' => $xpath->evaluate('string(ext:repo)', $extension),
+					'discuss' => $xpath->evaluate('string(ext:url[@type="discuss"])', $extension),
+					'homepage' => $xpath->evaluate('string(ext:url[@type="homepage"])', $extension),
+					'wiki' => $xpath->evaluate('string(ext:url[@type="wiki"])', $extension),
+					'issues' => $xpath->evaluate('string(ext:url[@type="issues"])', $extension),
 					'status' => array()
 				);
 
@@ -829,6 +885,10 @@
 					$required_min_version = $xpath->evaluate('string(@min)', $release);
 					$required_max_version = $xpath->evaluate('string(@max)', $release);
 					$current_symphony_version = Symphony::Configuration()->get('version', 'symphony');
+
+					// Remove pre-release notes fro the current Symphony version so that
+					// we don't get false erros in the backend
+					$current_symphony_version = preg_replace(array('/dev/i', '/beta\d/i', '/rc\d/i'), '', $current_symphony_version);
 
 					// Munge the version number so that it makes sense in the backend.
 					// Consider, 2.3.x. As the min version, this means 2.3 onwards,
@@ -858,31 +918,21 @@
 					$a = array(
 						'name' => $xpath->evaluate('string(ext:name)', $author),
 						'website' => $xpath->evaluate('string(ext:website)', $author),
+						'github' => $xpath->evaluate('string(ext:name/@github)', $author),
 						'email' => $xpath->evaluate('string(ext:email)', $author)
 					);
 
 					$about['author'][] = array_filter($a);
 				}
-			}
 
-			// It doesn't, fallback to loading the extension using the built in
-			// `about()` array.
+				$about['status'] = array_merge($about['status'], self::fetchStatus($about));
+				return $about;
+			}
 			else {
-				$obj = self::getInstance($name);
-				$about = $obj->about();
+				Symphony::Log()->pushToLog(sprintf('%s does not have an extension.meta.xml file', $name), E_DEPRECATED, true);
 
-				// If this is empty then the extension has managed to not provide
-				// an `about()` function or an `extension.meta.xml` file. So
-				// ignore this extension even exists
-				if(empty($about)) return array();
-
-				$about['status'] = array();
+				return array();
 			}
-
-			$about['handle'] = $name;
-			$about['status'] = array_merge($about['status'], self::fetchStatus($about));
-
-			return $about;
 		}
 
 		/**
@@ -890,6 +940,8 @@
 		 *
 		 * @param string $name
 		 *  The name of the Extension Class minus the extension prefix.
+		 * @throws Exception
+		 * @throws SymphonyErrorPage
 		 * @return Extension
 		 */
 		public static function create($name){

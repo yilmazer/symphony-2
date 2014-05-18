@@ -29,14 +29,16 @@
 		/**
 		 * Initialise will set the error handler to be the `__CLASS__::handler` function.
 		 *
-		 * @param Log $log
+		 * @param Log $Log
 		 *  An instance of a Symphony Log object to write errors to
 		 */
 		public static function initialise(Log $Log = null){
 			if(!is_null($Log)){
 				self::$_Log = $Log;
 			}
+
 			set_exception_handler(array(__CLASS__, 'handler'));
+			register_shutdown_function(array(__CLASS__, 'shutdown'));
 		}
 
 		/**
@@ -102,7 +104,6 @@
 			}
 			catch(Exception $e){
 				try {
-
 					if(!headers_sent()) {
 						Page::renderStatusCode(Page::HTTP_STATUS_ERROR);
 						header('Content-Type: text/html; charset=utf-8');
@@ -115,9 +116,8 @@
 				}
 				catch(Exception $e) {
 					echo "<pre>";
-					echo 'A severe error occurred whilst trying to handle an exception:' . PHP_EOL;
-					echo $e->getMessage() . ' on ' . $e->getLine() . ' of file ' . $e->getFile();
-					exit;
+					echo 'A severe error occurred whilst trying to handle an exception, check the Symphony log for more details' . PHP_EOL;
+					echo $e->getMessage() . ' on ' . $e->getLine() . ' of file ' . $e->getFile() . PHP_EOL;
 				}
 			}
 		}
@@ -155,9 +155,7 @@
 		 *  An HTML string
 		 */
 		public static function render(Exception $e){
-
 			$lines = NULL;
-
 			foreach(self::__nearByLines($e->getLine(), $e->getFile()) as $line => $string){
 				$lines .= sprintf(
 					'<li%s><strong>%d</strong> <code>%s</code></li>',
@@ -168,7 +166,6 @@
 			}
 
 			$trace = NULL;
-
 			foreach($e->getTrace() as $t){
 				$trace .= sprintf(
 					'<li><code><em>[%s:%d]</em></code></li><li><code>&#160;&#160;&#160;&#160;%s%s%s();</code></li>',
@@ -193,7 +190,8 @@
 				}
 			}
 
-			$html = sprintf(file_get_contents(self::getTemplate('fatalerror.generic')),
+			return self::renderHtml(
+				'fatalerror.generic',
 				($e instanceof ErrorException ? GenericErrorHandler::$errorTypeStrings[$e->getSeverity()] : 'Fatal Error'),
 				$e->getMessage(),
 				$e->getFile(),
@@ -202,11 +200,86 @@
 				$trace,
 				$queries
 			);
+		}
+
+		/**
+		 * The shutdown function will capture any fatal errors and format them as a
+		 * usual Symphony page.
+		 *
+		 * @since Symphony 2.4
+		 */
+		public static function shutdown() {
+			$last_error = error_get_last();
+			if(!is_null($last_error) && $last_error['type'] === E_ERROR) {
+				$code = $last_error['type'];
+				$message = $last_error['message'];
+				$file = $last_error['file'];
+				$line = $last_error['line'];
+
+				try {
+					// Log the error message
+					if(self::$_Log instanceof Log) {
+						self::$_Log->pushToLog(
+							sprintf(
+								'%s %s: %s%s%s',
+								__CLASS__, $code, $message, ($line ? " on line $line" : null), ($file ? " of file $file" : null)
+							), $code, true
+						);
+					}
+					ob_clean();
+
+					// Display the error message
+					echo self::renderHtml(
+						'fatalerror.fatal',
+						'Fatal Error',
+						$message,
+						$file,
+						$line
+					);
+				}
+				catch(Exception $e) {
+					echo "<pre>";
+					echo 'A severe error occurred whilst trying to handle an exception, check the Symphony log for more details' . PHP_EOL;
+					echo $e->getMessage() . ' on ' . $e->getLine() . ' of file ' . $e->getFile() . PHP_EOL;
+				}
+			}
+		}
+
+		/**
+		 * This function will fetch the desired `$template`, and output the
+		 * Exception in a user friendly way.
+		 *
+		 * @since Symphony 2.4
+		 * @param string $template
+		 *  The template name, which should correspond to something in the TEMPLATE
+		 *  directory, eg `fatalerror.fatal`.
+		 * @param string $heading
+		 * @param string $message
+		 * @param string $file
+		 * @param string $line
+		 * @param string $lines
+		 * @param string $trace
+		 * @param string $queries
+		 * @return string
+		 *  The HTML of the formatted error message.
+		 */
+		public static function renderHtml($template, $heading, $message, $file = null, $line = null, $lines = null, $trace = null, $queries = null) {
+			$html = sprintf(file_get_contents(self::getTemplate($template)),
+				$heading,
+				General::unwrapCDATA($message),
+				$file,
+				$line,
+				$lines,
+				$trace,
+				$queries
+			);
+			$html = str_replace('{APPLICATION_URL}', APPLICATION_URL, $html);
 			$html = str_replace('{SYMPHONY_URL}', SYMPHONY_URL, $html);
 			$html = str_replace('{URL}', URL, $html);
 
 			return $html;
 		}
+
 	}
 
 	/**
@@ -251,10 +324,10 @@
 		 * @var array
 		 */
 		public static $errorTypeStrings = array (
-			E_NOTICE				=> 'Notice',
+			E_ERROR					=> 'Fatal Error',
 			E_WARNING				=> 'Warning',
-			E_ERROR					=> 'Error',
 			E_PARSE					=> 'Parsing Error',
+			E_NOTICE				=> 'Notice',
 
 			E_CORE_ERROR			=> 'Core Error',
 			E_CORE_WARNING			=> 'Core Warning',
@@ -309,6 +382,7 @@
 		 *  The file that holds the logic that caused the error. Defaults to null
 		 * @param integer $line
 		 *  The line where the error occurred.
+		 * @throws ErrorException
 		 * @return string
 		 *  Usually a string of HTML that will displayed to a user
 		 */

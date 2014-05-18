@@ -40,7 +40,7 @@
 		/**
 		 * Constructor. Sets basic default values based on preferences.
 		 *
-		 * @return void
+		 * @throws EmailValidationException
 		 */
 		public function __construct(){
 			parent::__construct();
@@ -50,6 +50,9 @@
 		/**
 		 * Send an email using an SMTP server
 		 *
+		 * @throws EmailGatewayException
+		 * @throws EmailValidationException
+		 * @throws Exception
 		 * @return boolean
 		 */
 		public function send(){
@@ -70,6 +73,9 @@
 
 				// Encode recipient names (but not any numeric array indexes)
 				foreach($this->_recipients as $name => $email){
+					// Support Bcc header
+					if(isset($this->_header_fields['Bcc']) && $this->_header_fields['Bcc'] == $email) continue;
+
 					$name = empty($name) ? $name : EmailHelper::qEncode($name);
 					$recipients[$name] = $email;
 				}
@@ -168,6 +174,7 @@
 		/**
 		 * Sets the host to connect to.
 		 *
+		 * @param null|string $host (optional)
 		 * @return void
 		 */
 		public function setHost($host = null){
@@ -185,6 +192,7 @@
 		/**
 		 * Sets the port, used in the connection.
 		 *
+		 * @param null|int $port
 		 * @return void
 		 */
 		public function setPort($port = null){
@@ -251,6 +259,8 @@
 		 * Sets the envelope_from address. This is only available via the API, as it is an expert-only feature.
 		 *
 		 * @since 2.3.1
+		 * @param null $envelope_from
+		 * @throws EmailValidationException
 		 * @return void
 		 */
 		public function setEnvelopeFrom($envelope_from = null){
@@ -263,10 +273,11 @@
 		/**
 		 * Sets all configuration entries from an array.
 		 *
+		 * @param array $config
+		 *  All configuration entries stored in a single array.
+		 *  The array should have the format of the $_POST array created by the preferences HTML.
 		 * @throws EmailValidationException
-		 * @param array $configuration
 		 * @since 2.3.1
-		 *  All configuration entries stored in a single array. The array should have the format of the $_POST array created by the preferences HTML.
 		 * @return void
 		 */
 		public function setConfiguration($config){
@@ -289,6 +300,7 @@
 		/**
 		 * Builds the preferences pane, shown in the Symphony backend.
 		 *
+		 * @throws InvalidArgumentException
 		 * @return XMLElement
 		 */
 		public function getPreferencesPane(){

@@ -44,14 +44,18 @@
 
 					// Setup each cell
 					$td1 = Widget::TableData(Widget::Anchor($s->get('name'), Administration::instance()->getCurrentPageURL() . 'edit/' . $s->get('id') .'/', NULL, 'content'));
+					$td1->appendChild(Widget::Label(__('Select Section %s', array($s->get('name'))), null, 'accessible', null, array(
+						'for' => 'section-' . $s->get('id')
+					)));
+					$td1->appendChild(Widget::Input('items['.$s->get('id').']', 'on', 'checkbox', array(
+						'id' => 'section-' . $s->get('id')
+					)));
+
 					$td2 = Widget::TableData(Widget::Anchor("$entry_count", SYMPHONY_URL . '/publish/' . $s->get('handle') . '/'));
 					$td3 = Widget::TableData($s->get('navigation_group'));
 
-					$td3->appendChild(Widget::Input('items['.$s->get('id').']', 'on', 'checkbox'));
-
 					// Add a row to the body array, assigning each cell to the row
 					$aTableBody[] = Widget::TableRow(array($td1, $td2, $td3));
-
 				}
 			}
 
@@ -59,10 +63,17 @@
 				Widget::TableHead($aTableHead),
 				NULL,
 				Widget::TableBody($aTableBody),
-				'orderable selectable'
+				'orderable selectable',
+				null,
+				array('role' => 'directory', 'aria-labelledby' => 'symphony-subheading', 'data-interactive' => 'data-interactive')
 			);
 
 			$this->Form->appendChild($table);
+
+			$version = new XMLElement('p', 'Symphony ' . Symphony::Configuration()->get('version', 'symphony'), array(
+				'id' => 'version'
+			));
+			$this->Form->appendChild($version);
 
 			$tableActions = new XMLElement('div');
 			$tableActions->setAttribute('class', 'actions');
@@ -152,22 +163,28 @@
 			$fieldset->setAttribute('class', 'settings');
 			$fieldset->appendChild(new XMLElement('legend', __('Essentials')));
 
-			$div = new XMLElement('div', NULL, array('class' => 'two columns'));
 			$namediv = new XMLElement('div', NULL, array('class' => 'column'));
 
 			$label = Widget::Label(__('Name'));
 			$label->appendChild(Widget::Input('meta[name]', (isset($meta['name']) ? General::sanitize($meta['name']) : null)));
-
 			if(isset($this->_errors['name'])) $namediv->appendChild(Widget::Error($label, $this->_errors['name']));
 			else $namediv->appendChild($label);
 
-			$label = Widget::Label();
-			$input = Widget::Input('meta[hidden]', 'yes', 'checkbox', ($meta['hidden'] == 'yes' ? array('checked' => 'checked') : null));
-			$label->setValue(__('%s Hide this section from the back-end menu', array($input->generate(false))));
-			$namediv->appendChild($label);
-			$div->appendChild($namediv);
+			$fieldset->appendChild($namediv);
+
+			$div = new XMLElement('div', NULL, array('class' => 'two columns'));
+
+			$handlediv = new XMLElement('div', NULL, array('class' => 'column'));
+
+			$label = Widget::Label(__('Handle'));
+			$label->appendChild(Widget::Input('meta[handle]', (isset($meta['handle']) ? General::sanitize($meta['handle']) : null)));
+			if(isset($this->_errors['handle'])) $handlediv->appendChild(Widget::Error($label, $this->_errors['handle']));
+			else $handlediv->appendChild($label);
+
+			$div->appendChild($handlediv);
 
 			$navgroupdiv = new XMLElement('div', NULL, array('class' => 'column'));
+
 			$sections = SectionManager::fetch(NULL, 'ASC', 'sortorder');
 			$label = Widget::Label(__('Navigation Group'));
 			$label->appendChild(Widget::Input('meta[navigation_group]', $meta['navigation_group']));
@@ -176,7 +193,7 @@
 			else $navgroupdiv->appendChild($label);
 
 			if(is_array($sections) && !empty($sections)){
-				$ul = new XMLElement('ul', NULL, array('class' => 'tags singular'));
+				$ul = new XMLElement('ul', NULL, array('class' => 'tags singular', 'data-interactive' => 'data-interactive'));
 				$groups = array();
 				foreach($sections as $s){
 					if(in_array($s->get('navigation_group'), $groups)) continue;
@@ -188,9 +205,33 @@
 			}
 
 			$div->appendChild($navgroupdiv);
-
 			$fieldset->appendChild($div);
+			$this->Form->appendChild($fieldset);
 
+			$fieldset = new XMLElement('fieldset');
+			$fieldset->setAttribute('class', 'settings');
+			$fieldset->appendChild(new XMLElement('legend', __('Options')));
+
+			$div = new XMLElement('div', NULL, array('class' => 'two columns'));
+
+			$hidediv = new XMLElement('div', NULL, array('class' => 'column'));
+
+			$label = Widget::Label();
+			$input = Widget::Input('meta[hidden]', 'yes', 'checkbox', ($meta['hidden'] == 'yes' ? array('checked' => 'checked') : null));
+			$label->setValue(__('%s Hide this section from the back-end menu', array($input->generate(false))));
+			$hidediv->appendChild($label);
+
+			$div->appendChild($hidediv);
+
+			$filterdiv = new XMLElement('div', NULL, array('class' => 'column'));
+
+			$label = Widget::Label();
+			$input = Widget::Input('meta[filter]', 'yes', 'checkbox', array('checked' => 'checked'));
+			$label->setValue(__('%s Allow filtering of section entries', array($input->generate(false))));
+			$filterdiv->appendChild($label);
+
+			$div->appendChild($filterdiv);
+			$fieldset->appendChild($div);
 			$this->Form->appendChild($fieldset);
 
 			/**
@@ -218,12 +259,14 @@
 
 			$fieldset = new XMLElement('fieldset');
 			$fieldset->setAttribute('class', 'settings');
-			$fieldset->appendChild(new XMLElement('legend', __('Fields')));
 
-			$div = new XMLElement('div', null, array('class' => 'frame'));
+			$legend = new XMLElement('legend', __('Fields'));
+			$legend->setAttribute('id', 'fields-legend');
+			$fieldset->appendChild($legend);
+
+			$div = new XMLElement('div', null, array('class' => 'frame', 'id' => 'fields-duplicator'));
 
 			$ol = new XMLElement('ol');
-			$ol->setAttribute('id', 'fields-duplicator');
 			$ol->setAttribute('data-add', __('Add field'));
 			$ol->setAttribute('data-remove', __('Remove field'));
 
@@ -303,10 +346,12 @@
 			}
 			// These alerts are only valid if the form doesn't have errors
 			else if(isset($this->_context[2])) {
+				$time = Widget::Time();
+
 				switch($this->_context[2]) {
 					case 'saved':
 						$this->pageAlert(
-							__('Section updated at %s.', array(DateTimeObj::getTimeAgo()))
+							__('Section updated at %s.', array($time->generate()))
 							. ' <a href="' . SYMPHONY_URL . '/blueprints/sections/new/" accesskey="c">'
 							. __('Create another?')
 							. '</a> <a href="' . SYMPHONY_URL . '/blueprints/sections/" accesskey="a">'
@@ -317,7 +362,7 @@
 
 					case 'created':
 						$this->pageAlert(
-							__('Section created at %s.', array(DateTimeObj::getTimeAgo()))
+							__('Section created at %s.', array($time->generate()))
 							. ' <a href="' . SYMPHONY_URL . '/blueprints/sections/new/" accesskey="c">'
 							. __('Create another?')
 							. '</a> <a href="' . SYMPHONY_URL . '/blueprints/sections/" accesskey="a">'
@@ -349,6 +394,7 @@
 			if(isset($_POST['meta'])){
 				$meta = $_POST['meta'];
 				$meta['hidden'] = (isset($meta['hidden']) ? 'yes' : 'no');
+				$meta['filter'] = (isset($meta['filter']) ? 'yes' : 'no');
 
 				if($meta['name'] == '') $meta['name'] = $section->get('name');
 			}
@@ -366,22 +412,28 @@
 			$fieldset->setAttribute('class', 'settings');
 			$fieldset->appendChild(new XMLElement('legend', __('Essentials')));
 
-			$div = new XMLElement('div', NULL, array('class' => 'two columns'));
 			$namediv = new XMLElement('div', NULL, array('class' => 'column'));
 
 			$label = Widget::Label(__('Name'));
-			$label->appendChild(Widget::Input('meta[name]', General::sanitize($meta['name'])));
-
+			$label->appendChild(Widget::Input('meta[name]', (isset($meta['name']) ? General::sanitize($meta['name']) : null)));
 			if(isset($this->_errors['name'])) $namediv->appendChild(Widget::Error($label, $this->_errors['name']));
 			else $namediv->appendChild($label);
 
-			$label = Widget::Label();
-			$input = Widget::Input('meta[hidden]', 'yes', 'checkbox', ($meta['hidden'] == 'yes' ? array('checked' => 'checked') : NULL));
-			$label->setValue(__('%s Hide this section from the back-end menu', array($input->generate(false))));
-			$namediv->appendChild($label);
-			$div->appendChild($namediv);
+			$fieldset->appendChild($namediv);
+
+			$div = new XMLElement('div', NULL, array('class' => 'two columns'));
+
+			$handlediv = new XMLElement('div', NULL, array('class' => 'column'));
+
+			$label = Widget::Label(__('Handle'));
+			$label->appendChild(Widget::Input('meta[handle]', (isset($meta['handle']) ? General::sanitize($meta['handle']) : null)));
+			if(isset($this->_errors['handle'])) $handlediv->appendChild(Widget::Error($label, $this->_errors['handle']));
+			else $handlediv->appendChild($label);
+
+			$div->appendChild($handlediv);
 
 			$navgroupdiv = new XMLElement('div', NULL, array('class' => 'column'));
+
 			$sections = SectionManager::fetch(NULL, 'ASC', 'sortorder');
 			$label = Widget::Label(__('Navigation Group'));
 			$label->appendChild(Widget::Input('meta[navigation_group]', $meta['navigation_group']));
@@ -390,7 +442,7 @@
 			else $navgroupdiv->appendChild($label);
 
 			if(is_array($sections) && !empty($sections)){
-				$ul = new XMLElement('ul', NULL, array('class' => 'tags singular'));
+				$ul = new XMLElement('ul', NULL, array('class' => 'tags singular', 'data-interactive' => 'data-interactive'));
 				$groups = array();
 				foreach($sections as $s){
 					if(in_array($s->get('navigation_group'), $groups)) continue;
@@ -402,9 +454,33 @@
 			}
 
 			$div->appendChild($navgroupdiv);
-
 			$fieldset->appendChild($div);
+			$this->Form->appendChild($fieldset);
 
+			$fieldset = new XMLElement('fieldset');
+			$fieldset->setAttribute('class', 'settings');
+			$fieldset->appendChild(new XMLElement('legend', __('Options')));
+
+			$div = new XMLElement('div', NULL, array('class' => 'two columns'));
+
+			$hidediv = new XMLElement('div', NULL, array('class' => 'column'));
+
+			$label = Widget::Label();
+			$input = Widget::Input('meta[hidden]', 'yes', 'checkbox', ($meta['hidden'] == 'yes' ? array('checked' => 'checked') : null));
+			$label->setValue(__('%s Hide this section from the back-end menu', array($input->generate(false))));
+			$hidediv->appendChild($label);
+
+			$div->appendChild($hidediv);
+
+			$filterdiv = new XMLElement('div', NULL, array('class' => 'column'));
+
+			$label = Widget::Label();
+			$input = Widget::Input('meta[filter]', 'yes', 'checkbox', ($meta['filter'] == 'yes' ? array('checked' => 'checked') : null));
+			$label->setValue(__('%s Allow filtering of section entries', array($input->generate(false))));
+			$filterdiv->appendChild($label);
+
+			$div->appendChild($filterdiv);
+			$fieldset->appendChild($div);
 			$this->Form->appendChild($fieldset);
 
 			/**
@@ -430,13 +506,16 @@
 				'errors' => &$this->_errors
 			));
 
-			$fieldset = new XMLElement('fieldset', null, array('id' => 'fields', 'class' => 'settings'));
-			$fieldset->appendChild(new XMLElement('legend', __('Fields')));
+			$fieldset = new XMLElement('fieldset');
+			$fieldset->setAttribute('class', 'settings');
 
-			$div = new XMLElement('div', null, array('class' => 'frame'));
+			$legend = new XMLElement('legend', __('Fields'));
+			$legend->setAttribute('id', 'fields-legend');
+			$fieldset->appendChild($legend);
+
+			$div = new XMLElement('div', null, array('class' => 'frame', 'id' => 'fields-duplicator'));
 
 			$ol = new XMLElement('ol');
-			$ol->setAttribute('id', 'fields-duplicator');
 			$ol->setAttribute('data-add', __('Add field'));
 			$ol->setAttribute('data-remove', __('Remove field'));
 
@@ -509,7 +588,7 @@
 				 *  '/blueprints/sections/'
 				 * @param array $checked
 				 *  An array of the selected rows. The value is usually the ID of the
-				 *  the associated object. 
+				 *  the associated object.
 				 */
 				Symphony::ExtensionManager()->notifyMembers('CustomActions', '/blueprints/sections/', array(
 					'checked' => $checked
@@ -592,19 +671,20 @@
 					$canProceed = false;
 				}
 
-				// Check for duplicate section handle
-				elseif($edit) {
-					$s = SectionManager::fetchIDFromHandle(Lang::createHandle($meta['name']));
+				// Check for duplicate section handle during edit
+				else if($edit) {
+					$s = SectionManager::fetchIDFromHandle(Lang::createHandle($meta['handle']));
 					if(
-						$meta['name'] !== $existing_section->get('name')
+						$meta['handle'] !== $existing_section->get('handle')
 						&& !is_null($s) && $s !== $section_id
 					) {
-						$this->_errors['name'] = __('A Section with the name %s already exists', array('<code>' . $meta['name'] . '</code>'));
+						$this->_errors['handle'] = __('A Section with the handle %s already exists', array('<code>' . $meta['handle'] . '</code>'));
 						$canProceed = false;
 					}
 				}
-				elseif(!is_null(SectionManager::fetchIDFromHandle(Lang::createHandle($meta['name'])))) {
-					$this->_errors['name'] = __('A Section with the name %s already exists', array('<code>' . $meta['name'] . '</code>'));
+				// Existing section during creation
+				else if(!is_null(SectionManager::fetchIDFromHandle(Lang::createHandle($meta['handle'])))) {
+					$this->_errors['handle'] = __('A Section with the handle %s already exists', array('<code>' . $meta['handle'] . '</code>'));
 					$canProceed = false;
 				}
 
@@ -664,7 +744,10 @@
 				}
 
 				if($canProceed){
-					$meta['handle'] = Lang::createHandle($meta['name']);
+					$meta['handle'] = Lang::createHandle((isset($meta['handle']) && !empty($meta['handle']))
+						? $meta['handle']
+						: $meta['name']
+					);
 
 					// If we are creating a new Section
 					if(!$edit) {
@@ -697,6 +780,7 @@
 					// We are editing a Section
 					else {
 						$meta['hidden'] = (isset($meta['hidden']) ? 'yes' : 'no');
+						$meta['filter'] = (isset($meta['filter']) ? 'yes' : 'no');
 
 						/**
 						 * Just prior to updating the Section settings. Use with caution as
